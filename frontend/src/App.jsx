@@ -1,362 +1,354 @@
 import { useState } from 'react'
-import axios from 'axios'
-import { Activity, Clock, Users, ShieldAlert, Navigation, Map as MapIcon, CheckCircle2, AlertTriangle } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import MapplsMap from './MapplsMap'
+import Predict from './Predict'
+import Analytics from './Analytics'
+import GridMap from './GridMap'
+import './App.css'
 
-function App() {
-  const [formData, setFormData] = useState({
-    event_cause: 'vehicle_breakdown',
-    veh_type: 'heavy_vehicle',
-    corridor: 'Hosur Road',
-    priority: 'High',
-    time: new Date().toISOString().slice(0, 16), // default current time
-    requires_road_closure: false,
-    event_type: 'unplanned',
-    latitude: 12.9716, // Default Bangalore latitude
-    longitude: 77.5946, // Default Bangalore longitude
-    police_station: 'Cubbon Park',
-    description: ''
-  })
-
-  const [loading, setLoading] = useState(false)
-  const [results, setResults] = useState(null)
-  const [error, setError] = useState(null)
-  const [showDeploymentToast, setShowDeploymentToast] = useState(false)
-
-  const handleDeploy = () => {
-    setShowDeploymentToast(true)
-    setTimeout(() => setShowDeploymentToast(false), 3000)
-  }
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    
-    // Convert local datetime-local to ISO string for backend
-    const submissionData = {
-      ...formData,
-      time: new Date(formData.time).toISOString()
-    }
-
-    try {
-      const response = await axios.post('http://127.0.0.1:8000/api/predict', submissionData)
-      setResults(response.data)
-    } catch (err) {
-      console.error(err)
-      setError('Failed to fetch intelligence data. Please check if the backend is running.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Chart Data preparation
-  const chartData = results ? [
-    { name: 'Personnel', value: results.personnel_needed, color: '#2563eb' }, // blue-600
-    { name: 'Barricades', value: results.barricades_needed, color: '#facc15' } // yellow-400
-  ] : []
+export default function App() {
+  const [tab, setTab] = useState('predict')
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 bg-yellow-400 rounded-full animate-pulse shadow-sm shadow-yellow-200"></div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Traffic Intelligence Engine</h1>
+    <div className="grid-bg" style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+      {/* ── Header ── */}
+      <header style={{
+        borderBottom:'1px solid var(--border)',
+        padding:'0 24px',
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+        height:56, position:'sticky', top:0, zIndex:100,
+        background:'rgba(10,14,26,0.85)', backdropFilter:'blur(16px)'
+      }}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{
+            width:30, height:30, borderRadius:8,
+            background:'linear-gradient(135deg,#3b82f6,#8b5cf6)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:'0.9rem', boxShadow:'0 0 12px rgba(59,130,246,0.4)'
+          }}>🚦</div>
+          <div>
+            <div style={{fontSize:'0.95rem',fontWeight:900,letterSpacing:'-0.02em',lineHeight:1}}>
+              Traffic Intelligence Engine
+            </div>
+            <div style={{fontSize:'0.65rem',color:'var(--text-muted)',letterSpacing:'0.05em'}}>
+              ASTRAM · BENGALURU
+            </div>
+          </div>
         </div>
-        <div className="text-sm font-bold text-slate-600 hidden sm:flex items-center gap-2">
-          Powered by <span className="text-blue-600 font-black tracking-wider">ASTraM</span> & <span className="text-emerald-600 font-black tracking-wider">MapmyIndia</span>
+
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:7,height:7,borderRadius:'50%',background:'#10b981',animation:'pulse-ring 2s infinite'}}/>
+          <span style={{fontSize:'0.72rem',color:'var(--text-secondary)',fontWeight:600}}>API ONLINE</span>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Left Column: Input Panel */}
-        <section className="lg:col-span-4 flex flex-col gap-6">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-            <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-600" />
-              New Event Simulation
-            </h2>
-            
-            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-              
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Event Cause</label>
-                <select 
-                  name="event_cause" 
-                  value={formData.event_cause} 
-                  onChange={handleChange}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                >
-                  <option value="vehicle_breakdown">Vehicle Breakdown</option>
-                  <option value="accident">Accident</option>
-                  <option value="water_logging">Water Logging</option>
-                  <option value="tree_fall">Tree Fall</option>
-                  <option value="pot_holes">Pot Holes</option>
-                  <option value="congestion">Congestion</option>
-                  <option value="construction">Construction</option>
-                  <option value="others">Others</option>
-                </select>
-              </div>
+      {/* ── Body ── */}
+      <div style={{flex:1,display:'grid',gridTemplateColumns:'340px 1fr',minHeight:0}}>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Vehicle Type</label>
-                <select 
-                  name="veh_type" 
-                  value={formData.veh_type} 
-                  onChange={handleChange}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                >
-                  <option value="heavy_vehicle">Heavy Vehicle</option>
-                  <option value="lcv">LCV</option>
-                  <option value="bmtc_bus">BMTC Bus</option>
-                  <option value="private_bus">Private Bus</option>
-                  <option value="private_car">Private Car</option>
-                  <option value="auto">Auto</option>
-                  <option value="unknown">Unknown</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Corridor</label>
-                <select 
-                  name="corridor" 
-                  value={formData.corridor} 
-                  onChange={handleChange}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                >
-                  <option value="Hosur Road">Hosur Road</option>
-                  <option value="ORR East 1">ORR East 1</option>
-                  <option value="Tumkur Road">Tumkur Road</option>
-                  <option value="Bellary Road 1">Bellary Road 1</option>
-                  <option value="Mysore Road">Mysore Road</option>
-                  <option value="Non-corridor">Non-corridor</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Corridor Priority</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['Low', 'Medium', 'High'].map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, priority: p })}
-                      className={`py-2 px-3 rounded-full text-sm font-bold transition-all border ${
-                        formData.priority === p 
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Event Time</label>
-                <input 
-                  type="datetime-local" 
-                  name="time"
-                  value={formData.time}
-                  onChange={handleChange}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                />
-              </div>
-
-              <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <input 
-                  type="checkbox" 
-                  id="requires_road_closure"
-                  name="requires_road_closure"
-                  checked={formData.requires_road_closure}
-                  onChange={(e) => setFormData({ ...formData, requires_road_closure: e.target.checked })}
-                  className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="requires_road_closure" className="text-sm font-semibold text-slate-700 cursor-pointer">
-                  Requires Road Closure
-                </label>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Event Type</label>
-                <select 
-                  name="event_type" 
-                  value={formData.event_type} 
-                  onChange={handleChange}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                >
-                  <option value="unplanned">Unplanned</option>
-                  <option value="planned">Planned</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Police Station (Jurisdiction)</label>
-                <input 
-                  type="text" 
-                  name="police_station"
-                  value={formData.police_station}
-                  onChange={handleChange}
-                  placeholder="e.g. Cubbon Park"
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Incident Description</label>
-                <textarea 
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Describe the incident (e.g., severe accident, tree fallen)"
-                  rows="2"
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all resize-none"
-                ></textarea>
-              </div>
-
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-full shadow-md shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <Activity className="w-5 h-5 animate-spin" /> Analyzing...
-                  </span>
-                ) : 'Generate Intelligence'}
+        {/* LEFT SIDEBAR */}
+        <aside style={{
+          borderRight:'1px solid var(--border)',
+          overflowY:'auto', background:'#0d1424',
+          display:'flex', flexDirection:'column'
+        }}>
+          {/* Tab nav */}
+          <div style={{padding:'16px 20px 0'}}>
+            <div className="tab-nav">
+              <button className={`tab-btn ${tab==='predict'?'active':''}`} onClick={() => setTab('predict')}>
+                ⚡ Predict
               </button>
-
-              {error && (
-                <div className="mt-2 p-3 bg-red-50 text-red-600 text-sm font-medium rounded-xl border border-red-100 flex items-start gap-2">
-                  <ShieldAlert className="w-5 h-5 shrink-0" />
-                  {error}
-                </div>
-              )}
-            </form>
-          </div>
-        </section>
-
-        {/* Right Column: Intelligence Output */}
-        <section className="lg:col-span-8 flex flex-col gap-6">
-          {!results && !loading ? (
-            <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-400 bg-white border border-slate-200 border-dashed rounded-2xl p-10">
-               <Navigation className="w-16 h-16 mb-4 text-slate-300" />
-               <p className="text-lg font-semibold text-slate-500">Awaiting Simulation Data</p>
-               <p className="text-sm text-slate-400 max-w-sm text-center mt-2">Submit an event on the left panel to generate predictive intelligence and resource recommendations.</p>
+              <button className={`tab-btn ${tab==='analytics'?'active':''}`} onClick={() => setTab('analytics')}>
+                📊 Analytics
+              </button>
             </div>
-          ) : results ? (
-            <>
-              {/* KPI Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group hover:border-blue-300 transition-all">
-                  <div className="absolute top-4 right-4 bg-blue-50 text-blue-600 p-2 rounded-full">
-                    <Clock className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2 z-10">Clearance Time</h3>
-                  <div className="text-5xl md:text-6xl font-black text-blue-600 z-10 tracking-tighter">
-                    {results.predicted_duration_minutes}
-                    <span className="text-xl font-bold text-blue-400 ml-1">m</span>
-                  </div>
-                </div>
+          </div>
 
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group hover:border-blue-300 transition-all">
-                  <div className="absolute top-4 right-4 bg-yellow-50 text-yellow-600 p-2 rounded-full">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2 z-10">Personnel Needed</h3>
-                  <div className="text-5xl md:text-6xl font-black text-blue-600 z-10 tracking-tighter">
-                    {results.personnel_needed}
-                  </div>
-                </div>
+          {tab === 'analytics' && <Analytics />}
+          {tab === 'predict'  && (
+            /* only the form part of Predict lives here */
+            <PredictSidebarOnly />
+          )}
+        </aside>
 
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group hover:border-blue-300 transition-all">
-                  <div className="absolute top-4 right-4 bg-slate-50 text-slate-600 p-2 rounded-full">
-                    <ShieldAlert className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2 z-10">Barricades Needed</h3>
-                  <div className="text-5xl md:text-6xl font-black text-blue-600 z-10 tracking-tighter">
-                    {results.barricades_needed}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Ripple Effect Warning */}
-              {results.ripple_effect_warning && (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top-4">
-                  <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="text-amber-800 font-bold mb-1">ASTraM Ripple Effect Alert</h3>
-                    <p className="text-amber-700 text-sm font-medium">{results.ripple_effect_warning}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* MapmyIndia Visualization */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col min-h-[400px]">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <span className="w-2 h-6 bg-emerald-500 rounded-full"></span>
-                    MapmyIndia Diversion Route
-                  </h3>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
-                    <MapIcon className="w-4 h-4 text-emerald-600" /> Live Mappls SDK
-                  </div>
-                </div>
-                
-                <div className="flex-1 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 relative min-h-[300px]">
-                  <MapplsMap 
-                    center={{ lat: formData.latitude, lng: formData.longitude }} 
-                    diversionRoute={results.diversion_route} 
-                  />
-                </div>
-                
-                {/* Deploy Action */}
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="text-sm text-slate-500 font-medium">
-                    Route optimization calculated via MapmyIndia matrix.
-                  </div>
-                  <button 
-                    onClick={handleDeploy}
-                    className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-8 rounded-full shadow-md transition-all flex items-center gap-2"
-                  >
-                    Deploy ASTraM Field Units
-                  </button>
+        {/* RIGHT MAIN */}
+        <main style={{
+          overflowY: tab==='analytics' ? 'hidden' : 'auto',
+          display:'flex', flexDirection:'column',
+          height: 'calc(100vh - 56px)',
+        }}>
+          {tab === 'predict'   && <PredictMain />}
+          {tab === 'analytics' && (
+            <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+              <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border)',background:'#0d1424',flexShrink:0}}>
+                <div style={{fontWeight:800,fontSize:'0.95rem',marginBottom:2}}>Incident Density Grid</div>
+                <div style={{fontSize:'0.75rem',color:'var(--text-muted)'}}>
+                  Bengaluru divided into ~0.5 km² cells · Click any shaded cell for stats
                 </div>
               </div>
-
-            </>
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <Activity className="w-10 h-10 text-blue-600 animate-spin" />
+              <div style={{flex:1,minHeight:0,overflow:'hidden'}}>
+                <GridMap />
+              </div>
             </div>
           )}
-        </section>
+        </main>
+      </div>
+    </div>
+  )
+}
 
-      </main>
+// ── We need to split Predict into sidebar + main sections ────────────────────
+// The simplest way: use a shared React context / lifting state up.
+// For this refactor, we'll render Predict split via a shared state approach.
 
-      {/* Deployment Toast Notification */}
-      {showDeploymentToast && (
-        <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 z-50">
-          <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+import { useState as useS } from 'react'
+import axios from 'axios'
+import { API, EVENT_CAUSES, VEH_TYPES, CORRIDORS, CAUSE_LABELS, RISK_CONFIG, fmt } from './constants'
+import MapplsMap from './MapplsMap'
+
+const DEFAULT_FORM = {
+  event_cause:'vehicle_breakdown', veh_type:'heavy_vehicle',
+  corridor:'Mysore Road', priority:'High',
+  time: new Date().toISOString().slice(0,16),
+  requires_road_closure:false, event_type:'unplanned',
+  latitude:12.9716, longitude:77.5946,
+  police_station:'Cubbon Park', description:''
+}
+
+// Shared state via module-level (simple approach for single-page app)
+let _setResults = null
+let _setForm_   = null
+let _setLoading_= null
+let _setError_  = null
+
+function PredictSidebarOnly() {
+  const [form, setForm] = useS(DEFAULT_FORM)
+  const [loading, setLoading] = useS(false)
+  const [error, setError] = useS(null)
+
+  _setForm_    = setForm
+  _setLoading_ = setLoading
+  _setError_   = setError
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}))
+  const handle = e => set(e.target.name, e.target.value)
+
+  const submit = async e => {
+    e.preventDefault()
+    setLoading(true); setError(null)
+    try {
+      const res = await axios.post(`${API}/api/predict`,{
+        ...form, time: new Date(form.time).toISOString()
+      })
+      if (_setResults) _setResults({data: res.data, form})
+    } catch {
+      setError('Backend error — check server is running.')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <form onSubmit={submit} style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:12,flex:1}}>
+      <div className="tab-nav" style={{marginTop:4}}>
+        {['unplanned','planned'].map(t=>(
+          <button key={t} type="button" className={`tab-btn ${form.event_type===t?'active':''}`}
+            onClick={()=>set('event_type',t)}>
+            {t==='unplanned'?'🔴 Unplanned':'📅 Planned'}
+          </button>
+        ))}
+      </div>
+
+      <div className="form-field">
+        <label className="label">Event Cause</label>
+        <select name="event_cause" value={form.event_cause} onChange={handle} className="form-select">
+          {EVENT_CAUSES.map(c=><option key={c} value={c}>{CAUSE_LABELS[c]||c}</option>)}
+        </select>
+      </div>
+
+      <div className="form-field">
+        <label className="label">Corridor</label>
+        <select name="corridor" value={form.corridor} onChange={handle} className="form-select">
+          {CORRIDORS.map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+
+      <div className="form-field">
+        <label className="label">Priority</label>
+        <div className="priority-group">
+          {['Low','Medium','High'].map(p=>(
+            <button key={p} type="button"
+              className={`priority-btn ${form.priority===p?`active-${p.toLowerCase()}`:''}`}
+              onClick={()=>set('priority',p)}>{p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="form-field">
+        <label className="label">Vehicle Type</label>
+        <select name="veh_type" value={form.veh_type} onChange={handle} className="form-select">
+          {VEH_TYPES.map(v=><option key={v} value={v}>{v.replace(/_/g,' ')}</option>)}
+        </select>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <div className="form-field">
+          <label className="label">Latitude</label>
+          <input name="latitude" type="number" step="any" value={form.latitude} onChange={handle} className="form-input"/>
+        </div>
+        <div className="form-field">
+          <label className="label">Longitude</label>
+          <input name="longitude" type="number" step="any" value={form.longitude} onChange={handle} className="form-input"/>
+        </div>
+      </div>
+
+      <div className="form-field">
+        <label className="label">Event Time</label>
+        <input type="datetime-local" name="time" value={form.time} onChange={handle} className="form-input"/>
+      </div>
+
+      <div className="form-field">
+        <label className="label">Police Station</label>
+        <input name="police_station" value={form.police_station} onChange={handle}
+          placeholder="e.g. Cubbon Park" className="form-input"/>
+      </div>
+
+      <label className="toggle-row">
+        <input type="checkbox" checked={form.requires_road_closure}
+          onChange={e=>set('requires_road_closure',e.target.checked)}/>
+        <span style={{fontSize:'0.8rem',fontWeight:600}}>Requires Road Closure</span>
+      </label>
+
+      <div className="form-field">
+        <label className="label">Description</label>
+        <textarea name="description" value={form.description} onChange={handle}
+          placeholder="Describe the incident…" className="form-textarea"/>
+      </div>
+
+      <button type="submit" disabled={loading} className="btn btn-primary">
+        {loading
+          ? <><span className="spinner" style={{width:16,height:16,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',borderRadius:'50%',display:'inline-block'}}/>Analyzing…</>
+          : '⚡ Generate Intelligence'
+        }
+      </button>
+      {error && <div className="alert alert-critical" style={{fontSize:'0.78rem'}}><span>⚠️</span>{error}</div>}
+    </form>
+  )
+}
+
+function RiskBadge({level}) {
+  const cfg = RISK_CONFIG[level]||RISK_CONFIG.Low
+  return (
+    <span className={`badge ${cfg.cls}`} style={{border:'1px solid',fontSize:'0.75rem',padding:'4px 12px'}}>
+      <span style={{width:7,height:7,borderRadius:'50%',background:cfg.dot,display:'inline-block'}}/>
+      {level} Risk
+    </span>
+  )
+}
+
+function PredictMain() {
+  const [state, setState] = useS(null)
+  const [toast, setToast] = useS(false)
+  _setResults = setState
+
+  if (!state) {
+    return (
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+        height:'100%',gap:16,color:'var(--text-muted)',padding:40}}>
+        <div style={{fontSize:'3.5rem'}}>🗺️</div>
+        <div style={{fontWeight:700,fontSize:'1.1rem',color:'var(--text-secondary)'}}>Awaiting Event Data</div>
+        <p style={{fontSize:'0.85rem',textAlign:'center',maxWidth:320,lineHeight:1.6}}>
+          Select event parameters in the left panel and click Generate Intelligence to see AI-powered predictions, historical analysis, and resource recommendations.
+        </p>
+      </div>
+    )
+  }
+
+  const {data:r, form} = state
+  const deploy = () => { setToast(true); setTimeout(()=>setToast(false),3000) }
+
+  return (
+    <div style={{padding:'24px',display:'flex',flexDirection:'column',gap:16}}>
+      {/* Header */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:8}}>
+        <div>
+          <h2 style={{fontSize:'1.1rem',fontWeight:900,marginBottom:2}}>Intelligence Report</h2>
+          <p style={{fontSize:'0.78rem',color:'var(--text-muted)'}}>
+            {CAUSE_LABELS[form.event_cause]||form.event_cause} · {form.corridor} · {form.event_type}
+          </p>
+        </div>
+        <RiskBadge level={r.risk_level}/>
+      </div>
+
+      {/* 4 KPI cards */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
+        {[
+          {label:'Clearance Time', value:`${fmt(r.predicted_duration_minutes)} min`, color:'#3b82f6', icon:'⏱️', sub:`Historical avg: ${fmt(r.historical_avg_duration)} min`},
+          {label:'Personnel',      value:r.personnel_needed,  color:'#10b981', icon:'👮', sub:'Officers needed'},
+          {label:'Barricades',     value:r.barricades_needed, color:'#f59e0b', icon:'🚧', sub:'Units required'},
+          {label:'Road Closure',   value:`${r.road_closure_probability}%`, color:r.road_closure_probability>40?'#ef4444':'#8b5cf6', icon:'🛑', sub:'Historical probability'},
+        ].map(k=>(
+          <div key={k.label} className="card kpi-card fade-in-up" style={{padding:'16px'}}>
+            <div className="kpi-glow" style={{background:k.color}}/>
+            <div className="kpi-icon" style={{background:`${k.color}20`,color:k.color,width:34,height:34,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:10,fontSize:'1rem'}}>
+              {k.icon}
+            </div>
+            <div className="label" style={{marginBottom:4}}>{k.label}</div>
+            <div style={{fontSize:'1.8rem',fontWeight:900,color:k.color,lineHeight:1}}>{k.value}</div>
+            <div style={{fontSize:'0.7rem',color:'var(--text-muted)',marginTop:4}}>{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Historical context */}
+      <div className="card" style={{padding:'16px 20px'}}>
+        <div className="label" style={{marginBottom:10}}>Historical Context</div>
+        {[
+          ['Similar events (cause + corridor)', r.similar_past_events, 'var(--text-primary)'],
+          ['Historical avg clearance', `${fmt(r.historical_avg_duration)} min`, '#94a3b8'],
+          ['Road closure probability', `${r.road_closure_probability}%`, r.road_closure_probability>40?'#f87171':'#34d399'],
+          ['AI predicted clearance', `${fmt(r.predicted_duration_minutes)} min`, '#60a5fa'],
+        ].map(([l,v,c])=>(
+          <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid var(--border)'}}>
+            <span style={{fontSize:'0.8rem',color:'var(--text-secondary)'}}>{l}</span>
+            <span style={{fontSize:'0.8rem',fontWeight:700,color:c}}>{v}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Ripple effect */}
+      {r.ripple_effect_warning && (
+        <div className={`alert ${r.risk_level==='Critical'?'alert-critical':'alert-warning'} fade-in-up`}>
+          <span style={{fontSize:'1.3rem'}}>{r.risk_level==='Critical'?'🔴':'⚠️'}</span>
           <div>
-            <h4 className="font-bold">ASTraM Units Deployed!</h4>
-            <p className="text-sm text-slate-400">Personnel and barricades dispatched to location.</p>
+            <div style={{fontWeight:700,fontSize:'0.85rem',marginBottom:3}}>Ripple Effect Alert</div>
+            <div style={{fontSize:'0.8rem',color:'var(--text-secondary)'}}>{r.ripple_effect_warning}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Map */}
+      <div className="card" style={{padding:'16px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div className="label">Suggested Diversion Route</div>
+          <span className="badge badge-cyan">Mappls SDK</span>
+        </div>
+        <div style={{height:300,borderRadius:10,overflow:'hidden'}}>
+          <MapplsMap
+            center={{lat:form.latitude, lng:form.longitude}}
+            diversionRoute={r.diversion_route}
+          />
+        </div>
+        <button onClick={deploy} className="btn btn-primary" style={{width:'100%',marginTop:12}}>
+          🚀 Deploy ASTraM Field Units
+        </button>
+      </div>
+
+      {toast && (
+        <div className="toast">
+          <span style={{fontSize:'1.2rem'}}>✅</span>
+          <div>
+            <div style={{fontWeight:700,fontSize:'0.85rem'}}>Units Deployed!</div>
+            <div style={{fontSize:'0.75rem',color:'var(--text-secondary)'}}>Personnel & barricades dispatched.</div>
           </div>
         </div>
       )}
     </div>
   )
 }
-
-export default App
