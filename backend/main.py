@@ -111,9 +111,46 @@ class PredictionResponse(BaseModel):
     risk_level: str = "Low"                 # Low / Medium / High / Critical
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PREDICT ENDPOINT
-# ══════════════════════════════════════════════════════════════════════════════
+# ── Dynamic OSRM/Mappls routing helper ───────────────────────────────────────
+def get_real_diversion_route(lat: float, lng: float) -> list[dict]:
+    lat_a, lng_a = lat - 0.003, lng - 0.003
+    lat_b, lng_b = lat + 0.003, lng + 0.003
+    lat_c, lng_c = lat + 0.002, lng - 0.002
+    
+    token = MAPPLS_ACCESS_TOKEN or "pntknaqafyaklachyssafshgqdymvzqcmdpj"
+    mappls_url = f"https://apis.mappls.com/advancedmaps/v1/{token}/route/driving/{lng_a},{lat_a};{lng_c},{lat_c};{lng_b},{lat_b}?overview=full&geometries=geojson"
+    
+    try:
+        response = requests.get(mappls_url, timeout=3.0)
+        if response.status_code == 200:
+            data = response.json()
+            if "routes" in data and len(data["routes"]) > 0:
+                coords = data["routes"][0]["geometry"]["coordinates"]
+                return [{"lat": c[1], "lng": c[0]} for c in coords]
+    except Exception as e:
+        print("Mappls Directions API failed, trying OSRM:", e)
+
+    # Fallback to public free OSRM
+    osrm_url = f"http://router.project-osrm.org/route/v1/driving/{lng_a},{lat_a};{lng_c},{lat_c};{lng_b},{lat_b}?overview=full&geometries=geojson"
+    try:
+        response = requests.get(osrm_url, timeout=3.0)
+        if response.status_code == 200:
+            data = response.json()
+            if "routes" in data and len(data["routes"]) > 0:
+                coords = data["routes"][0]["geometry"]["coordinates"]
+                return [{"lat": c[1], "lng": c[0]} for c in coords]
+    except Exception as e:
+        print("OSRM routing failed, using fallback route simulation:", e)
+    
+    # Fallback simulation
+    off = 0.003
+    return [
+        {"lat": lat - off, "lng": lng - off},
+        {"lat": lat + off/2, "lng": lng - off},
+        {"lat": lat + off, "lng": lng + off/2},
+        {"lat": lat + off, "lng": lng + off},
+    ]
+
 
 @app.post("/api/predict", response_model=PredictionResponse)
 def predict_resources(request: IncidentRequest):
@@ -190,36 +227,8 @@ def predict_resources(request: IncidentRequest):
     elif predicted_duration > 40:
         ripple = "WARNING: Moderate ripple effect likely. Monitor adjacent junctions closely."
 
-    # ── Mappls API Diversion Route ───────────────────────────────────────────
-    base_lat, base_lng = request.latitude, request.longitude
-    diversion_route = []
-    
-    if MAPPLS_ACCESS_TOKEN:
-        # Route from slightly south-west to slightly north-east to create a diversion path
-        start_lat, start_lng = base_lat - 0.005, base_lng - 0.005
-        end_lat, end_lng = base_lat + 0.005, base_lng + 0.005
-        
-        try:
-            url = f"https://apis.mappls.com/advancedmaps/v1/{MAPPLS_ACCESS_TOKEN}/route_adv/driving/{start_lng},{start_lat};{end_lng},{end_lat}?geometries=geojson"
-            response = requests.get(url, timeout=4.0)
-            if response.status_code == 200:
-                data = response.json()
-                if "routes" in data and len(data["routes"]) > 0:
-                    coords = data["routes"][0]["geometry"]["coordinates"]
-                    diversion_route = [{"lat": c[1], "lng": c[0]} for c in coords]
-        except Exception as e:
-            print("Mappls Routing API Error:", e)
-
-    # Fallback to simulated square if API fails or token missing
-    if not diversion_route:
-        off = 0.005
-        diversion_route = [
-            {"lat": base_lat,         "lng": base_lng},
-            {"lat": base_lat + off,   "lng": base_lng},
-            {"lat": base_lat + off,   "lng": base_lng + off},
-            {"lat": base_lat - off/2, "lng": base_lng + off},
-            {"lat": base_lat - off/2, "lng": base_lng - off/2},
-        ]
+    # ── Real street-level diversion route via OSRM/Mappls ────────────────────
+    diversion_route = get_real_diversion_route(request.latitude, request.longitude)
 
     return PredictionResponse(
         predicted_duration_minutes=round(predicted_duration, 1),
