@@ -43,6 +43,13 @@ print("Loading analytics dataset...")
 _df = load_full_data()
 print(f"Analytics dataset: {len(_df)} rows loaded")
 
+from db import init_db, add_deployment, get_deployments, resolve_deployment
+try:
+    init_db()
+    print("Database initialized successfully.")
+except Exception as e:
+    print("Failed to initialize database:", e)
+
 # ── Historical lookup helpers ────────────────────────────────────────────────
 _CAUSE_CLOSURE_RATE: dict[str, float] = {}
 _CAUSE_AVG_DURATION: dict[str, float] = {}
@@ -94,6 +101,8 @@ class IncidentRequest(BaseModel):
     longitude: float
     police_station: str
     description: str
+    event_scale: Optional[str] = "Medium"
+    crowd_size: Optional[int] = 0
 
 class Coordinate(BaseModel):
     lat: float
@@ -109,11 +118,50 @@ class PredictionResponse(BaseModel):
     historical_avg_duration: float = 0.0    # mins, same cause
     similar_past_events: int = 0            # count of matching events
     risk_level: str = "Low"                 # Low / Medium / High / Critical
+    congestion_radius_meters: float = 0.0
+    commuter_delay_minutes: float = 0.0
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PREDICT ENDPOINT
-# ══════════════════════════════════════════════════════════════════════════════
+# ── Dynamic OSRM/Mappls routing helper ───────────────────────────────────────
+def get_real_diversion_route(lat: float, lng: float) -> list[dict]:
+    lat_a, lng_a = lat - 0.003, lng - 0.003
+    lat_b, lng_b = lat + 0.003, lng + 0.003
+    lat_c, lng_c = lat + 0.002, lng - 0.002
+    
+    token = MAPPLS_ACCESS_TOKEN or "pntknaqafyaklachyssafshgqdymvzqcmdpj"
+    mappls_url = f"https://apis.mappls.com/advancedmaps/v1/{token}/route/driving/{lng_a},{lat_a};{lng_c},{lat_c};{lng_b},{lat_b}?overview=full&geometries=geojson"
+    
+    try:
+        response = requests.get(mappls_url, timeout=3.0)
+        if response.status_code == 200:
+            data = response.json()
+            if "routes" in data and len(data["routes"]) > 0:
+                coords = data["routes"][0]["geometry"]["coordinates"]
+                return [{"lat": c[1], "lng": c[0]} for c in coords]
+    except Exception as e:
+        print("Mappls Directions API failed, trying OSRM:", e)
+
+    # Fallback to public free OSRM
+    osrm_url = f"http://router.project-osrm.org/route/v1/driving/{lng_a},{lat_a};{lng_c},{lat_c};{lng_b},{lat_b}?overview=full&geometries=geojson"
+    try:
+        response = requests.get(osrm_url, timeout=3.0)
+        if response.status_code == 200:
+            data = response.json()
+            if "routes" in data and len(data["routes"]) > 0:
+                coords = data["routes"][0]["geometry"]["coordinates"]
+                return [{"lat": c[1], "lng": c[0]} for c in coords]
+    except Exception as e:
+        print("OSRM routing failed, using fallback route simulation:", e)
+    
+    # Fallback simulation
+    off = 0.003
+    return [
+        {"lat": lat - off, "lng": lng - off},
+        {"lat": lat + off/2, "lng": lng - off},
+        {"lat": lat + off, "lng": lng + off/2},
+        {"lat": lat + off, "lng": lng + off},
+    ]
+
 
 @app.post("/api/predict", response_model=PredictionResponse)
 def predict_resources(request: IncidentRequest):
@@ -160,7 +208,32 @@ def predict_resources(request: IncidentRequest):
     predicted_duration = max(0.0, predicted_duration)
 
     # ── Fuzzy logic resources ────────────────────────────────────────────────
-    personnel, barricades = compute_resources(predicted_duration, corridor_priority)
+    base_personnel, base_barricades = compute_resources(predicted_duration, corridor_priority)
+
+    # ── Scale factors based on event scale & crowd size ──────────────────────
+    import math
+    scale_factors = {'Small': 0.8, 'Medium': 1.2, 'Large': 2.0}
+    scale_factor = scale_factors.get(request.event_scale, 1.2)
+    
+    crowd_size = request.crowd_size if request.crowd_size else 0
+    crowd_factor = 1.0 + (math.log10(max(1, crowd_size)) / 3.0 if crowd_size > 0 else 0.0)
+    
+    # Scale resources based on event size/crowd size
+    personnel = int(round(base_personnel * scale_factor * crowd_factor))
+    barricades = int(round(base_barricades * scale_factor * crowd_factor))
+    
+    # Cap resources to realistic bounds
+    personnel = max(1, min(30, personnel))
+    barricades = max(0, min(80, barricades))
+
+    # Calculate congestion impact metrics
+    base_radius = predicted_duration * 8.0  # 8m per minute
+    priority_factor = {1: 1.0, 2: 1.5, 3: 2.2}.get(corridor_priority, 1.0)
+    congestion_radius = base_radius * scale_factor * priority_factor * crowd_factor
+    congestion_radius = max(50.0, min(5000.0, round(congestion_radius, 1)))
+
+    commuter_delay = (predicted_duration * 0.3) * scale_factor * priority_factor * crowd_factor
+    commuter_delay = max(1.0, min(180.0, round(commuter_delay, 1)))
 
     # ── Historical enrichment ────────────────────────────────────────────────
     road_closure_prob   = _CAUSE_CLOSURE_RATE.get(request.event_cause, 0.0)
@@ -190,36 +263,8 @@ def predict_resources(request: IncidentRequest):
     elif predicted_duration > 40:
         ripple = "WARNING: Moderate ripple effect likely. Monitor adjacent junctions closely."
 
-    # ── Mappls API Diversion Route ───────────────────────────────────────────
-    base_lat, base_lng = request.latitude, request.longitude
-    diversion_route = []
-    
-    if MAPPLS_ACCESS_TOKEN:
-        # Route from slightly south-west to slightly north-east to create a diversion path
-        start_lat, start_lng = base_lat - 0.005, base_lng - 0.005
-        end_lat, end_lng = base_lat + 0.005, base_lng + 0.005
-        
-        try:
-            url = f"https://apis.mappls.com/advancedmaps/v1/{MAPPLS_ACCESS_TOKEN}/route_adv/driving/{start_lng},{start_lat};{end_lng},{end_lat}?geometries=geojson"
-            response = requests.get(url, timeout=4.0)
-            if response.status_code == 200:
-                data = response.json()
-                if "routes" in data and len(data["routes"]) > 0:
-                    coords = data["routes"][0]["geometry"]["coordinates"]
-                    diversion_route = [{"lat": c[1], "lng": c[0]} for c in coords]
-        except Exception as e:
-            print("Mappls Routing API Error:", e)
-
-    # Fallback to simulated square if API fails or token missing
-    if not diversion_route:
-        off = 0.005
-        diversion_route = [
-            {"lat": base_lat,         "lng": base_lng},
-            {"lat": base_lat + off,   "lng": base_lng},
-            {"lat": base_lat + off,   "lng": base_lng + off},
-            {"lat": base_lat - off/2, "lng": base_lng + off},
-            {"lat": base_lat - off/2, "lng": base_lng - off/2},
-        ]
+    # ── Real street-level diversion route via OSRM/Mappls ────────────────────
+    diversion_route = get_real_diversion_route(request.latitude, request.longitude)
 
     return PredictionResponse(
         predicted_duration_minutes=round(predicted_duration, 1),
@@ -231,6 +276,8 @@ def predict_resources(request: IncidentRequest):
         historical_avg_duration=historical_avg_dur,
         similar_past_events=similar_past_events,
         risk_level=risk_level,
+        congestion_radius_meters=congestion_radius,
+        commuter_delay_minutes=commuter_delay,
     )
 
 
@@ -474,6 +521,63 @@ def grid_cell_detail(grid_id: str, hour_start: int = 0, hour_end: int = 23, mont
         "junctions":     grp[grp['junction'] != '']['junction'].value_counts().head(5).to_dict(),
     }
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DEPLOYMENT & FEEDBACK LOGGING ENDPOINTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+class DeploymentRequest(BaseModel):
+    form: IncidentRequest
+    predictions: PredictionResponse
+
+class DeploymentFeedback(BaseModel):
+    actual_duration: float
+    actual_personnel: int
+    actual_barricades: int
+    actual_congestion_radius: float
+    actual_delay: float
+    feedback_comments: Optional[str] = ""
+
+@app.post("/api/deployments")
+def create_deployment(req: DeploymentRequest):
+    data = req.form.dict()
+    preds = {
+        "predicted_duration": req.predictions.predicted_duration_minutes,
+        "personnel": req.predictions.personnel_needed,
+        "barricades": req.predictions.barricades_needed,
+        "congestion_radius_meters": req.predictions.congestion_radius_meters,
+        "commuter_delay_minutes": req.predictions.commuter_delay_minutes
+    }
+    new_id = add_deployment(data, preds)
+    return {"status": "success", "id": new_id}
+
+@app.get("/api/deployments")
+def list_deployments(status: Optional[str] = None):
+    return get_deployments(status)
+
+@app.post("/api/deployments/{deployment_id}/resolve")
+def resolve_existing_deployment(deployment_id: int, feedback: DeploymentFeedback):
+    res = resolve_deployment(deployment_id, feedback.dict())
+    if not res:
+        return {"status": "error", "message": "Deployment not found"}
+    
+    # Trigger model retraining in background / synchronously for immediate update
+    try:
+        from ml_model import retrain_with_feedback
+        retrained = retrain_with_feedback(res)
+        if retrained:
+            # Hot-reload the model pipeline
+            global model_pipeline
+            model_pipeline = joblib.load(MODEL_PATH)
+            print("Model hot-reloaded successfully after retraining.")
+    except Exception as e:
+        print("Failed to retrain or hot-reload model:", e)
+        
+    return {"status": "success", "deployment": res}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SERVE REACT FRONTEND (Must be at the very bottom)
+# ══════════════════════════════════════════════════════════════════════════════
 
 
 @app.get("/api/analytics/summary")

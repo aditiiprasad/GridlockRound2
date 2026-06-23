@@ -28,7 +28,18 @@ export default function ResultsPanel({ results }) {
   }
 
   const {data:r, form} = results
-  const deploy = () => { setToast(true); setTimeout(()=>setToast(false),3000) }
+  const deploy = async () => {
+    try {
+      const { API } = await import('../constants')
+      const axios = (await import('axios')).default
+      await axios.post(`${API}/api/deployments`, { form, predictions: r })
+      setToast(true)
+      setTimeout(()=>setToast(false),3000)
+    } catch (err) {
+      console.error("Failed to deploy ASTraM Field Units", err)
+      alert("Failed to submit deployment to server.")
+    }
+  }
 
   return (
     <div className="p-8 flex flex-col gap-6 bg-gray-50 min-h-full">
@@ -79,6 +90,21 @@ export default function ResultsPanel({ results }) {
           </div>
           <div className="text-4xl font-extrabold text-purple-600 mb-1">{r.road_closure_probability}%</div>
           <div className="text-xs font-semibold text-gray-400">Historical probability</div>
+        </div>
+      </div>
+
+      {/* Estimated Congestion Impact */}
+      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="text-sm font-bold text-red-500 uppercase tracking-wider mb-4">Estimated Congestion Impact</div>
+        <div className="flex flex-col divide-y divide-gray-100">
+          <div className="flex justify-between py-3">
+            <span className="text-sm text-gray-600 font-medium">Congestion Radius</span>
+            <span className="text-sm font-bold text-red-500">{r.congestion_radius_meters} m</span>
+          </div>
+          <div className="flex justify-between py-3">
+            <span className="text-sm text-gray-600 font-medium">Commuter Delay</span>
+            <span className="text-sm font-bold text-yellow-600">{r.commuter_delay_minutes} min</span>
+          </div>
         </div>
       </div>
 

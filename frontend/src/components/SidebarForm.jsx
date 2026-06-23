@@ -74,6 +74,22 @@ export default function SidebarForm({ form, setForm, loading, submit, DEFAULT_FO
           placeholder="e.g. Cubbon Park" className={inputClass}/>
       </div>
 
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Event Scale</label>
+          <select name="event_scale" value={form.event_scale} onChange={handle} className={inputClass}>
+            <option value="Small">Small Event</option>
+            <option value="Medium">Medium Event</option>
+            <option value="Large">Large Event</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>Crowd Size (Est.)</label>
+          <input name="crowd_size" type="number" value={form.crowd_size || ''}
+            onChange={e=>set('crowd_size', parseInt(e.target.value) || 0)} className={inputClass}/>
+        </div>
+      </div>
+
       <label className="flex items-center gap-3 cursor-pointer select-none">
         <input type="checkbox" checked={form.requires_road_closure}
           onChange={e=>set('requires_road_closure',e.target.checked)}
