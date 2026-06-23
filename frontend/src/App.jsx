@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import axios from 'axios'
 import Header from './components/Header'
 import SidebarForm from './components/SidebarForm'
@@ -20,9 +20,21 @@ const DEFAULT_FORM = {
   crowd_size: 0
 }
 
+const DEFAULT_FILTERS = { hourStart: 0, hourEnd: 23, month: 0 }
+
 export default function App() {
   const [view, setView] = useState('landing') // 'landing' | 'dashboard'
   const [tab, setTab] = useState('predict')
+
+  // ── Shared analytics state (lifted for GridMap / Analytics) ──────────────
+  const [appliedFilters, setApplied]  = useState(DEFAULT_FILTERS)
+  const [pendingFilters, setPending]  = useState(DEFAULT_FILTERS)
+  const [selectedGridId, setGridId]   = useState(null)
+
+  const applyFilters = useCallback(() => { setApplied({...pendingFilters}); setGridId(null) }, [pendingFilters])
+  const resetAll     = useCallback(() => { setApplied(DEFAULT_FILTERS); setPending(DEFAULT_FILTERS); setGridId(null) }, [])
+  const selectCell   = useCallback((gid) => setGridId(gid), [])
+  const clearCell    = useCallback(() => setGridId(null), [])
   
   // Predict App State
   const [form, setForm] = useState(DEFAULT_FORM)
@@ -94,7 +106,11 @@ export default function App() {
             </div>
           </div>
 
-          {tab === 'analytics' && <Analytics />}
+          {tab === 'analytics' && <Analytics
+              filters={appliedFilters}
+              selectedGridId={selectedGridId}
+              onClearCell={clearCell}
+            />}
           {tab === 'feedback'  && (
             <div className="p-6 text-sm text-gray-500 leading-relaxed font-semibold">
               Manage ASTraM field deployments and submit post-event feedback to retrain ML models and refine the traffic scale logic.
@@ -132,7 +148,15 @@ export default function App() {
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-hidden">
-                <GridMap />
+                <GridMap
+                  appliedFilters={appliedFilters}
+                  pendingFilters={pendingFilters}
+                  setPendingFilters={setPending}
+                  onApply={applyFilters}
+                  onReset={resetAll}
+                  selectedGridId={selectedGridId}
+                  onCellSelect={selectCell}
+                />
               </div>
             </div>
           )}
