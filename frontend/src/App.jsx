@@ -31,10 +31,19 @@ export default function App() {
   const [pendingFilters, setPending]  = useState(DEFAULT_FILTERS)
   const [selectedGridId, setGridId]   = useState(null)
 
-  const applyFilters = useCallback(() => { setApplied({...pendingFilters}); setGridId(null) }, [pendingFilters])
-  const resetAll     = useCallback(() => { setApplied(DEFAULT_FILTERS); setPending(DEFAULT_FILTERS); setGridId(null) }, [])
+  const applyFilters = useCallback(() => {
+    setApplied({...pendingFilters})
+    setGridId(null)
+    setClusterId(null)
+  }, [pendingFilters])
+  const resetAll     = useCallback(() => { setApplied(DEFAULT_FILTERS); setPending(DEFAULT_FILTERS); setGridId(null); setClusterId(null) }, [])
   const selectCell   = useCallback((gid) => setGridId(gid), [])
   const clearCell    = useCallback(() => setGridId(null), [])
+
+  // ── Cluster selection (DBSCAN) ────────────────────────────────────────────
+  const [selectedClusterId, setClusterId] = useState(null)
+  const selectCluster = useCallback((cid) => { setClusterId(cid); setGridId(null) }, [])
+  const clearCluster  = useCallback(() => setClusterId(null), [])
   
   // Predict App State
   const [form, setForm] = useState(DEFAULT_FORM)
@@ -110,6 +119,8 @@ export default function App() {
               filters={appliedFilters}
               selectedGridId={selectedGridId}
               onClearCell={clearCell}
+              selectedClusterId={selectedClusterId}
+              onClearCluster={clearCluster}
             />}
           {tab === 'feedback'  && (
             <div className="p-6 text-sm text-gray-500 leading-relaxed font-semibold">
@@ -156,6 +167,8 @@ export default function App() {
                   onReset={resetAll}
                   selectedGridId={selectedGridId}
                   onCellSelect={selectCell}
+                  selectedClusterId={selectedClusterId}
+                  onClusterSelect={selectCluster}
                 />
               </div>
             </div>

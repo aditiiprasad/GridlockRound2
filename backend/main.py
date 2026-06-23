@@ -631,3 +631,221 @@ def analytics_summary(
         "zones": zones[:8], "hour_distribution": hour_dist,
         "is_filtered": (hour_start!=0 or hour_end!=23 or month!=0 or bool(grid_id)),
         "cell_info": cell_info}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DBSCAN SPATIAL CLUSTERING
+# ══════════════════════════════════════════════════════════════════════════════
+
+from sklearn.cluster import DBSCAN
+from scipy.spatial import ConvexHull
+import math
+
+# Cluster palette — up to 30 distinct colours
+_CLUSTER_COLORS = [
+    "#ef4444","#f97316","#eab308","#22c55e","#06b6d4",
+    "#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f59e0b",
+    "#84cc16","#0ea5e9","#a855f7","#f43f5e","#10b981",
+    "#6366f1","#fb923c","#4ade80","#38bdf8","#c084fc",
+    "#fbbf24","#34d399","#60a5fa","#f472b6","#a78bfa",
+    "#2dd4bf","#fb7185","#818cf8","#4ade80","#facc15",
+]
+
+# Pre-compute/dynamic cluster variables
+_DBSCAN_CLUSTERS: list = []
+_DBSCAN_LABELLED_DF: pd.DataFrame = pd.DataFrame()   # full labelled dataframe
+
+def run_dbscan_dynamic(hour_start: int = 0, hour_end: int = 23, month: int = 0):
+    """
+    Run DBSCAN dynamically on-the-fly based on time and month filters.
+    Converts coordinates to radians for a mathematically correct haversine metric.
+    """
+    global _DBSCAN_CLUSTERS, _DBSCAN_LABELLED_DF
+    
+    # Start with all cleaned data
+    df = _df.dropna(subset=["latitude", "longitude"]).copy()
+    
+    # 1. Month filter (1-indexed: 1=Jan, 2=Feb, etc.)
+    if month > 0:
+        df = df[df['start_datetime'].dt.month == month]
+        
+    # 2. Hour filter
+    if hour_start <= hour_end:
+        df = df[df['hour_of_day'].between(hour_start, hour_end)]
+    else:
+        # Overlapping midnight
+        df = df[(df['hour_of_day'] >= hour_start) | (df['hour_of_day'] <= hour_end)]
+
+    # Limit to Bengaluru bounding box to filter out anomalies
+    df = df[
+        df["latitude"].between(12.82, 13.18) &
+        df["longitude"].between(77.40, 77.80)
+    ]
+
+    if len(df) < 5:
+        _DBSCAN_CLUSTERS = []
+        _DBSCAN_LABELLED_DF = df
+        return
+
+    coords = df[["latitude", "longitude"]].values
+    
+    # IMPORTANT: Convert to radians for haversine metric!
+    coords_rad = np.radians(coords)
+
+    # Tight, dense clustering criteria: 500m radius, min 10 points
+    eps_rad = 0.50 / 6371.0
+    
+    db = DBSCAN(eps=eps_rad, min_samples=10, algorithm="ball_tree", metric="haversine")
+    labels = db.fit_predict(coords_rad)
+
+    df["cluster"] = labels
+    _DBSCAN_LABELLED_DF = df
+
+    clusters = []
+    for label in sorted(set(labels)):
+        if label == -1:          # noise points — skip
+            continue
+        grp = df[df["cluster"] == label]
+        pts = grp[["latitude", "longitude"]].values
+
+        # Convex hull (need ≥3 points)
+        hull_coords = []
+        if len(pts) >= 3:
+            try:
+                hull = ConvexHull(pts)
+                hull_pts = pts[hull.vertices]
+                # close the polygon
+                hull_pts = list(hull_pts) + [hull_pts[0]]
+                hull_coords = [[float(p[0]), float(p[1])] for p in hull_pts]
+            except Exception:
+                hull_coords = [[float(p[0]), float(p[1])] for p in pts]
+        else:
+            hull_coords = [[float(p[0]), float(p[1])] for p in pts]
+
+        center_lat = float(grp["latitude"].mean())
+        center_lng = float(grp["longitude"].mean())
+
+        cause_counts  = grp["event_cause"].value_counts()
+        top_cause     = cause_counts.index[0] if len(cause_counts) else "unknown"
+        high_pri_pct  = round(float((grp["priority"] == "High").mean() * 100), 1)
+        closure_pct   = round(float(grp["requires_road_closure"].mean() * 100), 1)
+
+        dur_valid = grp[
+            grp["resolution_time_minutes"].notna() &
+            grp["resolution_time_minutes"].between(0, 1440)
+        ] if "resolution_time_minutes" in grp.columns else pd.DataFrame()
+        avg_dur = round(float(dur_valid["resolution_time_minutes"].mean()), 1) if len(dur_valid) > 0 else None
+
+        dists = [
+            math.sqrt((r["latitude"] - center_lat)**2 + (r["longitude"] - center_lng)**2) * 111
+            for _, r in grp.iterrows()
+        ]
+        radius_km = round(float(sum(dists) / max(len(dists), 1)), 2)
+
+        clusters.append({
+            "cluster_id":        int(label),
+            "count":             len(grp),
+            "center_lat":        round(center_lat, 5),
+            "center_lng":        round(center_lng, 5),
+            "hull":              hull_coords,
+            "top_cause":         top_cause,
+            "cause_breakdown":   cause_counts.head(5).to_dict(),
+            "high_priority_pct": high_pri_pct,
+            "road_closure_pct":  closure_pct,
+            "avg_duration":      avg_dur,
+            "radius_km":         radius_km,
+        })
+
+    # Sort clusters by event count descending
+    _DBSCAN_CLUSTERS = sorted(clusters, key=lambda x: -x["count"])
+    
+    # Assign distinct colors to sorted clusters
+    for idx, c in enumerate(_DBSCAN_CLUSTERS):
+        c["color"] = _CLUSTER_COLORS[idx % len(_CLUSTER_COLORS)]
+
+    print(f"DBSCAN (dynamic): {len(_DBSCAN_CLUSTERS)} clusters found with {len(df)} samples")
+
+
+# Run initial DBSCAN with default constraints on startup
+run_dbscan_dynamic()
+
+
+@app.get("/api/analytics/clusters")
+def get_clusters(hour_start: int = 0, hour_end: int = 23, month: int = 0):
+    """
+    Return DBSCAN spatial clusters computed dynamically under the current filter criteria.
+    """
+    run_dbscan_dynamic(hour_start=hour_start, hour_end=hour_end, month=month)
+    return {
+        "clusters": _DBSCAN_CLUSTERS,
+        "total_clusters": len(_DBSCAN_CLUSTERS),
+    }
+
+
+@app.get("/api/analytics/cluster_summary/{cluster_id}")
+def cluster_summary(cluster_id: int):
+    """
+    Return full analytics for a single DBSCAN cluster from the last computed set.
+    """
+    if _DBSCAN_LABELLED_DF.empty:
+        return {"error": "Clusters not yet computed"}
+
+    grp = _DBSCAN_LABELLED_DF[_DBSCAN_LABELLED_DF["cluster"] == cluster_id]
+    if len(grp) == 0:
+        return {"error": f"Cluster {cluster_id} not found"}
+
+    # Find the ranked index of this cluster (sorted by count desc)
+    rank = next((i+1 for i, c in enumerate(_DBSCAN_CLUSTERS) if c["cluster_id"] == cluster_id), "?")
+    color = next((c["color"] for c in _DBSCAN_CLUSTERS if c["cluster_id"] == cluster_id), "#3b82f6")
+
+    # Overview
+    total = len(grp)
+    active = int((grp["status"] == "active").sum()) if "status" in grp.columns else 0
+    high_priority = int((grp["priority"] == "High").sum())
+    road_closures = int(grp["requires_road_closure"].sum())
+    overview = {"total_events": total, "active_events": active,
+                "high_priority": high_priority, "road_closures": road_closures}
+
+    # Causes
+    cause_counts = grp["event_cause"].value_counts()
+    causes = [{"cause": c, "count": int(n),
+               "closure_rate": _CAUSE_CLOSURE_RATE.get(c, 0.0),
+               "avg_duration":  _CAUSE_AVG_DURATION.get(c, 0.0)}
+              for c, n in cause_counts.head(10).items()]
+
+    # Junction hotspots within cluster
+    junc_series = grp[grp["junction"].str.len() > 0]["junction"] if "junction" in grp.columns else pd.Series(dtype=str)
+    junc_counts = junc_series.value_counts().head(8)
+    hotspots = []
+    for i, (j, cnt) in enumerate(junc_counts.items()):
+        rows = grp[grp["junction"] == j]
+        hotspots.append({"rank": i+1, "junction": j, "count": int(cnt),
+            "lat": round(float(rows["latitude"].median()), 6) if pd.notna(rows["latitude"].median()) else None,
+            "lng": round(float(rows["longitude"].median()), 6) if pd.notna(rows["longitude"].median()) else None})
+
+    # Zones within cluster
+    zones = []
+    for zone, zgrp in grp.groupby("zone"):
+        if not zone or zone == "unknown": continue
+        zones.append({"zone": zone, "total": len(zgrp),
+            "high_priority": int((zgrp["priority"] == "High").sum()),
+            "road_closures": int(zgrp["requires_road_closure"].sum())})
+    zones.sort(key=lambda x: -x["total"])
+
+    # Hour distribution
+    hour_dist = [int((grp["hour_of_day"] == h).sum()) for h in range(24)]
+
+    # Cluster metadata for banner
+    cluster_info = {
+        "cluster_id":  cluster_id,
+        "rank":        rank,
+        "color":       color,
+        "center_lat":  round(float(grp["latitude"].mean()), 4),
+        "center_lng":  round(float(grp["longitude"].mean()), 4),
+        "top_cause":   cause_counts.index[0] if len(cause_counts) else "unknown",
+    }
+
+    return {"overview": overview, "causes": causes, "hotspots": hotspots,
+            "zones": zones[:8], "hour_distribution": hour_dist,
+            "is_filtered": True, "cell_info": None,
+            "cluster_info": cluster_info}

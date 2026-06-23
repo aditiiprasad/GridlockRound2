@@ -5,7 +5,7 @@ import os
 CSV_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'dataset.csv')
 # CSV_PATH = '/home/bala/myfiles/Hackathons/gridlock2.0/Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv
 def load_and_clean_data(filepath: str = CSV_PATH) -> pd.DataFrame:
-    df = pd.read_csv(filepath)
+    df = pd.read_csv(filepath, on_bad_lines='skip')
 
     # ── Coordinate cleanup ──────────────────────────────────────────────────
     df['endlatitude']  = pd.to_numeric(df['endlatitude'],  errors='coerce').fillna(0)
@@ -71,7 +71,7 @@ def load_and_clean_data(filepath: str = CSV_PATH) -> pd.DataFrame:
 
 def load_full_data(filepath: str = CSV_PATH) -> pd.DataFrame:
     """Return the full cleaned dataset (with extra analytics columns) for the /api/analytics endpoints."""
-    df = pd.read_csv(filepath)
+    df = pd.read_csv(filepath, on_bad_lines='skip')
 
     df['start_datetime']  = pd.to_datetime(df['start_datetime'],  errors='coerce', utc=True)
     df['closed_datetime'] = pd.to_datetime(df['closed_datetime'], errors='coerce', utc=True)
@@ -90,13 +90,51 @@ def load_full_data(filepath: str = CSV_PATH) -> pd.DataFrame:
         df['requires_road_closure'].astype(str).str.upper() == 'TRUE'
     ).astype(int)
 
+    df['latitude']  = pd.to_numeric(df['latitude'],  errors='coerce')
+    df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
+
     # Duration for rows that have both timestamps
     df['resolution_time_minutes'] = (
         df['closed_datetime'] - df['start_datetime']
     ).dt.total_seconds() / 60.0
 
-    df['latitude']  = pd.to_numeric(df['latitude'],  errors='coerce')
-    df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
+    # Spatial imputation for missing zone and junction (e.g. Feb/Mar/Apr raw data gaps)
+    try:
+        from sklearn.neighbors import BallTree
+        import numpy as np
+
+        # Impute Zone
+        df_valid_zone = df[(df['zone'] != 'unknown') & df['latitude'].notna() & df['longitude'].notna()].copy()
+        if not df_valid_zone.empty:
+            tree_zone = BallTree(np.radians(df_valid_zone[['latitude', 'longitude']].values), metric='haversine')
+            to_impute = (df['zone'] == 'unknown') & df['latitude'].notna() & df['longitude'].notna()
+            if to_impute.any():
+                coords_rad = np.radians(df.loc[to_impute, ['latitude', 'longitude']].values)
+                indices = tree_zone.query(coords_rad, k=1, return_distance=False)
+                df.loc[to_impute, 'zone'] = df_valid_zone.iloc[indices.flatten()]['zone'].values
+
+        # Impute Junction (only if within 2.0 km of a known junction)
+        df_valid_junc = df[(df['junction'] != '') & df['latitude'].notna() & df['longitude'].notna()].copy()
+        if not df_valid_junc.empty:
+            tree_junc = BallTree(np.radians(df_valid_junc[['latitude', 'longitude']].values), metric='haversine')
+            to_impute = (df['junction'] == '') & df['latitude'].notna() & df['longitude'].notna()
+            if to_impute.any():
+                coords_rad = np.radians(df.loc[to_impute, ['latitude', 'longitude']].values)
+                dists, indices = tree_junc.query(coords_rad, k=1)
+                
+                dists_km = dists.flatten() * 6371.0
+                idx_flatten = indices.flatten()
+                
+                impute_values = []
+                for d, idx in zip(dists_km, idx_flatten):
+                    if d <= 2.0:
+                        impute_values.append(df_valid_junc.iloc[idx]['junction'])
+                    else:
+                        impute_values.append('')
+                df.loc[to_impute, 'junction'] = impute_values
+        print("Successfully imputed missing spatial zone/junction categories.")
+    except Exception as e:
+        print(f"Skipped spatial imputation: {e}")
 
     return df
 
