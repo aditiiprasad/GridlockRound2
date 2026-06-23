@@ -9,6 +9,14 @@ This project is an AI-powered **Traffic Intelligence Engine** built for Bengalur
 - **Ripple Effect & Risk Alerts**: Generates intelligent risk assessments (Low, Medium, High, Critical) and warns about secondary congestion (ripple effects) for severe incidents.
 - **Interactive Analytics & Grid Mapping**: Divides the city into ~0.5 km² grid cells to render incident density heatmaps, along with detailed cell-level statistics including top causes, hourly distribution, and planned vs. unplanned splits.
 - **Diversion Route Mapping**: Integrates with Mappls SDK to visualize suggested diversion routes around the incident coordinate.
+- **Live Event Scraper (Simulated for Prototype)**: A `Live Feeds` tab aggregates upcoming events (stadium matches, rallies, weather alerts) to prepopulate prediction models. Note: For this prototype phase, the BookMyShow/Social Media scraping is simulated via hardcoded data due to API access constraints, but the architecture supports live ingestion.
+- **Automated Public Advisories**: One-click generation of public traffic advisories (ready for WhatsApp/X) based on predicted congestion radius and delay times.
+
+## Hackathon Theme 2 Alignment
+This project directly addresses **Theme 2: Event-Driven Congestion (Planned & Unplanned)**.
+- **Forecast Event Impact**: AI predicts exact clearance times and congestion radius.
+- **Recommend Optimal Resources**: Fuzzy Logic engine recommends the precise number of personnel and barricading based on incident severity.
+- **Post-Event Learning System**: Includes a Deployment & Feedback loop where actual post-event metrics are logged, which then triggers an automatic online retraining of the Machine Learning model.
 
 ## Architecture & Technology Stack
 

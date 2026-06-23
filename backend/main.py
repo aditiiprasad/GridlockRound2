@@ -227,10 +227,12 @@ def predict_resources(request: IncidentRequest):
     barricades = max(0, min(80, barricades))
 
     # Calculate congestion impact metrics
-    base_radius = predicted_duration * 8.0  # 8m per minute
+    # Congestion radius: 4m per minute of delay
+    base_radius = predicted_duration * 4.0  
     priority_factor = {1: 1.0, 2: 1.5, 3: 2.2}.get(corridor_priority, 1.0)
-    congestion_radius = base_radius * scale_factor * priority_factor * crowd_factor
-    congestion_radius = max(50.0, min(5000.0, round(congestion_radius, 1)))
+    # Scale up based on severity but cap it to avoid massive map circles
+    congestion_radius = base_radius * scale_factor * priority_factor
+    congestion_radius = max(100.0, min(1200.0, round(congestion_radius, 1)))
 
     commuter_delay = (predicted_duration * 0.3) * scale_factor * priority_factor * crowd_factor
     commuter_delay = max(1.0, min(180.0, round(commuter_delay, 1)))
