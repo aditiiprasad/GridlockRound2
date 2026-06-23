@@ -472,3 +472,16 @@ def grid_cell_detail(grid_id: str, hour_start: int = 0, hour_end: int = 23, mont
         "junctions":     grp[grp['junction'] != '']['junction'].value_counts().head(5).to_dict(),
     }
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SERVE REACT FRONTEND (Must be at the very bottom)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Only mount static files if the directory exists (for deployed environments)
+if os.path.isdir("static"):
+    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+    app.mount("/hero-image.png", StaticFiles(directory="static", html=True), name="hero-image")
+    
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        return FileResponse("static/index.html")
+
