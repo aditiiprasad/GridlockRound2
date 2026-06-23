@@ -19,7 +19,7 @@ from data_pipeline import load_full_data
 load_dotenv()
 MAPPLS_ACCESS_TOKEN = os.getenv("MAPPLS_ACCESS_TOKEN")
 
-app = FastAPI(title="Traffic Intelligence Engine API — ASTraM")
+app = FastAPI(title="Traffic Intelligence Engine API — NammaGrid")
 
 app.add_middleware(
     CORSMiddleware,

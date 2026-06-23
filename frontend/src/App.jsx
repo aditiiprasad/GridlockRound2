@@ -149,7 +149,7 @@ export default function App() {
             />}
           {tab === 'feedback'  && (
             <div className="p-6 text-sm text-gray-500 leading-relaxed font-semibold fade-in-up">
-              Manage ASTraM field deployments and submit post-event feedback to retrain ML models and refine the traffic scale logic.
+              Manage NammaGrid field deployments and submit post-event feedback to retrain ML models and refine the traffic scale logic.
             </div>
           )}
           {tab === 'predict'  && (

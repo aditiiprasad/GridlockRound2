@@ -3,24 +3,24 @@ import React, { useState } from 'react';
 export default function LandingPage({ onScenarioSelect, onLiveFeedSelect }) {
   return (
     <div className="min-h-screen bg-white font-sans overflow-x-hidden flex flex-col md:flex-row">
-      
+
       {/* Left Side: Content & Scenarios */}
       <div className="flex-1 p-8 md:p-16 flex flex-col items-start fade-in-up">
-        
+
         {/* Massive Typography */}
         <h1 className="text-5xl md:text-7xl font-black text-gray-900 tracking-tight leading-[1.05] mb-6 max-w-xl">
           Helping Bengaluru <span className="text-fk-blue">move smarter</span>
         </h1>
-        
+
         <p className="text-lg md:text-xl text-gray-500 font-medium max-w-xl mb-12 leading-relaxed">
-          ASTraM powered by Flipkart AI. Select a scenario below to launch the intelligence dashboard, or connect to the live event streams.
+          Select a scenario below to launch the intelligence dashboard, or connect to the live event streams.
         </p>
 
         {/* 3 Scenario Cards (Vertical Stack on Left) */}
         <div className="flex flex-col gap-6 w-full max-w-xl">
-          
+
           {/* Card 1 */}
-          <div 
+          <div
             onClick={() => onScenarioSelect('water_logging')}
             className="group cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all w-full flex items-start gap-6"
           >
@@ -40,7 +40,7 @@ export default function LandingPage({ onScenarioSelect, onLiveFeedSelect }) {
           </div>
 
           {/* Card 2 */}
-          <div 
+          <div
             onClick={() => onScenarioSelect('accident')}
             className="group cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-red-200 transition-all w-full flex items-start gap-6"
           >
@@ -60,7 +60,7 @@ export default function LandingPage({ onScenarioSelect, onLiveFeedSelect }) {
           </div>
 
           {/* Card 3 */}
-          <div 
+          <div
             onClick={() => onScenarioSelect('vip_movement')}
             className="group cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:border-yellow-300 transition-all w-full flex items-start gap-6"
           >
@@ -83,14 +83,14 @@ export default function LandingPage({ onScenarioSelect, onLiveFeedSelect }) {
       </div>
 
       {/* Right Side: Massive Blue CTA Banner */}
-      <div className="flex-1 p-8 md:p-16 flex items-center justify-center bg-gray-50 border-l border-gray-100 fade-in-up" style={{animationDelay: '0.1s'}}>
+      <div className="flex-1 p-8 md:p-16 flex items-center justify-center bg-gray-50 border-l border-gray-100 fade-in-up" style={{ animationDelay: '0.1s' }}>
         <div className="bg-fk-blue rounded-[2.5rem] p-12 text-center flex flex-col items-center shadow-2xl w-full max-w-xl relative overflow-hidden">
-          
+
           <div className="text-xs font-black text-blue-200 uppercase tracking-widest mb-10">
             INTELLIGENCE DASHBOARD
           </div>
-          
-          <button 
+
+          <button
             onClick={onLiveFeedSelect}
             className="bg-fk-yellow hover:bg-yellow-400 text-gray-900 px-8 py-4 rounded-full font-black text-xl shadow-xl hover:scale-105 transition-all flex items-center gap-3 mb-10"
           >
