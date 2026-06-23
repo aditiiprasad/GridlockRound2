@@ -579,12 +579,55 @@ def resolve_existing_deployment(deployment_id: int, feedback: DeploymentFeedback
 # SERVE REACT FRONTEND (Must be at the very bottom)
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Only mount static files if the directory exists (for deployed environments)
-if os.path.isdir("static"):
-    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
-    app.mount("/hero-image.png", StaticFiles(directory="static", html=True), name="hero-image")
-    
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        return FileResponse("static/index.html")
 
+@app.get("/api/analytics/summary")
+def analytics_summary(
+    hour_start: int = Query(0,  ge=0, le=23),
+    hour_end:   int = Query(23, ge=0, le=23),
+    month:      int = Query(0,  ge=0, le=12),
+    grid_id:    str = Query("", description="Optional: filter to a 0.5km2 grid cell"),
+):
+    df = _apply_filters(hour_start, hour_end, month)
+    cell_info = None
+    if grid_id:
+        try:
+            r, c = map(int, grid_id.split('_'))
+            dfc = df.dropna(subset=['latitude','longitude']).copy()
+            dfc['grid_row'] = ((dfc['latitude']  - BLAT_MIN) / GRID_LAT).astype(int)
+            dfc['grid_col'] = ((dfc['longitude'] - BLNG_MIN) / GRID_LNG).astype(int)
+            df = dfc[(dfc['grid_row'] == r) & (dfc['grid_col'] == c)]
+            cell_info = {"grid_id": grid_id,
+                "center_lat": round(BLAT_MIN + r*GRID_LAT + GRID_LAT/2, 5),
+                "center_lng": round(BLNG_MIN + c*GRID_LNG + GRID_LNG/2, 5)}
+        except Exception:
+            pass
+    total = len(df)
+    overview = {"total_events": total,
+        "active_events": int((df['status'] == 'active').sum()) if 'status' in df.columns else 0,
+        "high_priority": int((df['priority'] == 'High').sum()),
+        "road_closures": int(df['requires_road_closure'].sum())}
+    cause_counts = df['event_cause'].value_counts()
+    causes = [{"cause": cause, "count": int(n),
+        "closure_rate": _CAUSE_CLOSURE_RATE.get(cause, 0.0),
+        "avg_duration":  _CAUSE_AVG_DURATION.get(cause, 0.0)}
+        for cause, n in cause_counts.head(10).items()]
+    junc_series = df[df['junction'].str.len() > 0]['junction'] if 'junction' in df.columns else pd.Series(dtype=str)
+    junc_counts = junc_series.value_counts().head(10)
+    hotspots = []
+    for i, (j, cnt) in enumerate(junc_counts.items()):
+        rows = df[df['junction'] == j]
+        hotspots.append({"rank": i+1, "junction": j, "count": int(cnt),
+            "lat": round(float(rows['latitude'].median()), 6) if pd.notna(rows['latitude'].median()) else None,
+            "lng": round(float(rows['longitude'].median()),6) if pd.notna(rows['longitude'].median()) else None})
+    zones = []
+    for zone, grp in df.groupby('zone'):
+        if not zone or zone == 'unknown': continue
+        zones.append({"zone": zone, "total": len(grp),
+            "high_priority": int((grp['priority']=='High').sum()),
+            "road_closures": int(grp['requires_road_closure'].sum())})
+    zones.sort(key=lambda x: -x['total'])
+    hour_dist = [int((df['hour_of_day'] == h).sum()) for h in range(24)]
+    return {"overview": overview, "causes": causes, "hotspots": hotspots,
+        "zones": zones[:8], "hour_distribution": hour_dist,
+        "is_filtered": (hour_start!=0 or hour_end!=23 or month!=0 or bool(grid_id)),
+        "cell_info": cell_info}
