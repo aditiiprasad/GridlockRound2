@@ -94,6 +94,8 @@ class IncidentRequest(BaseModel):
     longitude: float
     police_station: str
     description: str
+    event_scale: Optional[str] = "Medium"
+    crowd_size: Optional[int] = 0
 
 class Coordinate(BaseModel):
     lat: float
@@ -109,6 +111,8 @@ class PredictionResponse(BaseModel):
     historical_avg_duration: float = 0.0    # mins, same cause
     similar_past_events: int = 0            # count of matching events
     risk_level: str = "Low"                 # Low / Medium / High / Critical
+    congestion_radius_meters: float = 0.0
+    commuter_delay_minutes: float = 0.0
 
 
 # ── Dynamic OSRM/Mappls routing helper ───────────────────────────────────────
@@ -197,7 +201,32 @@ def predict_resources(request: IncidentRequest):
     predicted_duration = max(0.0, predicted_duration)
 
     # ── Fuzzy logic resources ────────────────────────────────────────────────
-    personnel, barricades = compute_resources(predicted_duration, corridor_priority)
+    base_personnel, base_barricades = compute_resources(predicted_duration, corridor_priority)
+
+    # ── Scale factors based on event scale & crowd size ──────────────────────
+    import math
+    scale_factors = {'Small': 0.8, 'Medium': 1.2, 'Large': 2.0}
+    scale_factor = scale_factors.get(request.event_scale, 1.2)
+    
+    crowd_size = request.crowd_size if request.crowd_size else 0
+    crowd_factor = 1.0 + (math.log10(max(1, crowd_size)) / 3.0 if crowd_size > 0 else 0.0)
+    
+    # Scale resources based on event size/crowd size
+    personnel = int(round(base_personnel * scale_factor * crowd_factor))
+    barricades = int(round(base_barricades * scale_factor * crowd_factor))
+    
+    # Cap resources to realistic bounds
+    personnel = max(1, min(30, personnel))
+    barricades = max(0, min(80, barricades))
+
+    # Calculate congestion impact metrics
+    base_radius = predicted_duration * 8.0  # 8m per minute
+    priority_factor = {1: 1.0, 2: 1.5, 3: 2.2}.get(corridor_priority, 1.0)
+    congestion_radius = base_radius * scale_factor * priority_factor * crowd_factor
+    congestion_radius = max(50.0, min(5000.0, round(congestion_radius, 1)))
+
+    commuter_delay = (predicted_duration * 0.3) * scale_factor * priority_factor * crowd_factor
+    commuter_delay = max(1.0, min(180.0, round(commuter_delay, 1)))
 
     # ── Historical enrichment ────────────────────────────────────────────────
     road_closure_prob   = _CAUSE_CLOSURE_RATE.get(request.event_cause, 0.0)
@@ -240,6 +269,8 @@ def predict_resources(request: IncidentRequest):
         historical_avg_duration=historical_avg_dur,
         similar_past_events=similar_past_events,
         risk_level=risk_level,
+        congestion_radius_meters=congestion_radius,
+        commuter_delay_minutes=commuter_delay,
     )
 
 

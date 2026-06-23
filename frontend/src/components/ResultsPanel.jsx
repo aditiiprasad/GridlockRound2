@@ -82,6 +82,21 @@ export default function ResultsPanel({ results }) {
         </div>
       </div>
 
+      {/* Estimated Congestion Impact */}
+      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="text-sm font-bold text-red-500 uppercase tracking-wider mb-4">Estimated Congestion Impact</div>
+        <div className="flex flex-col divide-y divide-gray-100">
+          <div className="flex justify-between py-3">
+            <span className="text-sm text-gray-600 font-medium">Congestion Radius</span>
+            <span className="text-sm font-bold text-red-500">{r.congestion_radius_meters} m</span>
+          </div>
+          <div className="flex justify-between py-3">
+            <span className="text-sm text-gray-600 font-medium">Commuter Delay</span>
+            <span className="text-sm font-bold text-yellow-600">{r.commuter_delay_minutes} min</span>
+          </div>
+        </div>
+      </div>
+
       {/* Historical Context Panel */}
       <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
         <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Historical Context</div>

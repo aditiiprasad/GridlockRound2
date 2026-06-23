@@ -14,7 +14,9 @@ const DEFAULT_FORM = {
   time: new Date().toISOString().slice(0,16),
   requires_road_closure:false, event_type:'unplanned',
   latitude:12.9716, longitude:77.5946,
-  police_station:'Cubbon Park', description:''
+  police_station:'Cubbon Park', description:'',
+  event_scale: 'Medium',
+  crowd_size: 0
 }
 
 export default function App() {
