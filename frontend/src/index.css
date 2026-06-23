@@ -1,10 +1,42 @@
 @import "tailwindcss";
 
+@theme {
+  --color-fk-blue: #047BD5;
+  --color-fk-yellow: #FFE500;
+}
+
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
   -webkit-font-smoothing: antialiased;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Fun Custom Cursor for Buttons */
+button, a, [role="button"], .cursor-pointer {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><text y='21' font-size='21'>👆</text></svg>") 12 0, pointer !important;
+}
+
+/* Base button animations */
+button:active {
+  transform: scale(0.98);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */

@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const MapplsMap = ({ center, diversionRoute }) => {
+const MapplsMap = ({ center, diversionRoute, radius }) => {
   const mapInstance = useRef(null);
   const polylineInstance = useRef(null);
   const markerInstance = useRef(null);
+  const circleInstance = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize Map once
@@ -48,7 +49,9 @@ const MapplsMap = ({ center, diversionRoute }) => {
 
       // Add Polyline
       if (polylineInstance.current) {
-        polylineInstance.current.remove();
+        if (typeof polylineInstance.current.remove === 'function') {
+          polylineInstance.current.remove();
+        }
       }
       
       if (diversionRoute && diversionRoute.length > 0) {
@@ -57,16 +60,36 @@ const MapplsMap = ({ center, diversionRoute }) => {
         polylineInstance.current = new window.mappls.Polyline({
           map: mapInstance.current,
           path: path,
-          strokeColor: "#2563eb",
-          strokeOpacity: 0.8,
+          strokeColor: "#047BD5", // fk-blue
+          strokeOpacity: 1.0,
           strokeWeight: 6,
           fitbounds: true
         });
       }
+
+      // Add Heatmap Circle
+      if (circleInstance.current) {
+        if (typeof circleInstance.current.remove === 'function') {
+          circleInstance.current.remove();
+        }
+      }
+
+      if (radius) {
+        circleInstance.current = new window.mappls.Circle({
+          map: mapInstance.current,
+          center: { lat: center.lat, lng: center.lng },
+          radius: radius,
+          fillColor: "#ff0000",
+          fillOpacity: 0.1,
+          strokeColor: "transparent",
+          strokeWeight: 0,
+        });
+      }
+
     } catch (e) {
       console.error("Map Update Error:", e);
     }
-  }, [center, diversionRoute, mapLoaded]);
+  }, [center, diversionRoute, radius, mapLoaded]);
 
   return <div id="mappls-map-container" style={{ width: '100%', height: '100%', minHeight: '300px', borderRadius: '12px' }}></div>;
 };

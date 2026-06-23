@@ -7,6 +7,7 @@ import LandingPage from './components/LandingPage'
 import Analytics from './Analytics'
 import GridMap from './GridMap'
 import Feedback from './Feedback'
+import LiveFeeds from './components/LiveFeeds'
 import { API } from './constants'
 
 const DEFAULT_FORM = {
@@ -78,39 +79,63 @@ export default function App() {
     setView('dashboard')
   }
 
+  const handleLiveEventSelect = (formData) => {
+    setForm({ ...DEFAULT_FORM, ...formData })
+    setResults(null)
+    setView('dashboard')
+    setTab('predict')
+  }
+
   if (view === 'landing') {
-    return <LandingPage onScenarioSelect={handleScenarioSelect} />
+    return (
+      <>
+        <Header setView={setView} />
+        <LandingPage onScenarioSelect={handleScenarioSelect} onLiveFeedSelect={() => setView('live_feeds')} />
+      </>
+    )
+  }
+
+  if (view === 'live_feeds') {
+    return (
+      <>
+        <Header setView={setView} />
+        <LiveFeeds onEventSelect={handleLiveEventSelect} onBack={() => setView('landing')} />
+      </>
+    )
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans">
-      <Header setView={setView} />
+    <div className="h-screen flex flex-col bg-gray-50 font-sans overflow-hidden">
+      {/* Taskbar / Navbar */}
+      <div className="shrink-0 z-20 shadow-sm relative">
+        <Header setView={setView} />
+      </div>
 
       {/* ── Body ── */}
       <div className="flex-1 flex overflow-hidden">
 
         {/* LEFT SIDEBAR */}
-        <aside className="w-96 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
+        <aside className="w-96 bg-white border-r border-gray-200 overflow-y-auto flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
           {/* Tab nav */}
           <div className="p-6 pb-0">
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl shadow-inner">
               <button 
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${tab==='predict' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`} 
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${tab==='predict' ? 'bg-white text-fk-blue shadow-md' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`} 
                 onClick={() => setTab('predict')}
               >
                 ⚡ Predict
               </button>
               <button 
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${tab==='analytics' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`} 
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${tab==='analytics' ? 'bg-white text-fk-blue shadow-md' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`} 
                 onClick={() => setTab('analytics')}
               >
                 📊 Analytics
               </button>
               <button 
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${tab==='feedback' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`} 
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${tab==='feedback' ? 'bg-white text-fk-blue shadow-md' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'}`} 
                 onClick={() => setTab('feedback')}
               >
-                📋 Deployments
+                📋 Feedback
               </button>
             </div>
           </div>
@@ -123,12 +148,12 @@ export default function App() {
               onClearCluster={clearCluster}
             />}
           {tab === 'feedback'  && (
-            <div className="p-6 text-sm text-gray-500 leading-relaxed font-semibold">
+            <div className="p-6 text-sm text-gray-500 leading-relaxed font-semibold fade-in-up">
               Manage ASTraM field deployments and submit post-event feedback to retrain ML models and refine the traffic scale logic.
             </div>
           )}
           {tab === 'predict'  && (
-            <>
+            <div className="fade-in-up flex flex-col h-full">
               <SidebarForm 
                 form={form} 
                 setForm={setForm} 
@@ -142,7 +167,7 @@ export default function App() {
                   <span>⚠️</span>{error}
                 </div>
               )}
-            </>
+            </div>
           )}
         </aside>
 
