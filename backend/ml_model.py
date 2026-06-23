@@ -10,7 +10,8 @@ import os
 
 from data_pipeline import load_and_clean_data
 
-DATA_PATH = '/home/bala/myfiles/Hackathons/gridlock2.0/Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv'
+import os
+DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'dataset.csv')
 
 def train_and_save_model(data_path: str = DATA_PATH, model_save_path: str = 'model.joblib'):
     print("Loading and cleaning data...")

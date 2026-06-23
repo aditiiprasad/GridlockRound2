@@ -5,3 +5,5 @@ scikit-learn
 scikit-fuzzy
 joblib
 pydantic
+requests
+python-dotenv

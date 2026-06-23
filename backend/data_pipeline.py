@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
+import os
 
-CSV_PATH = '/home/bala/myfiles/Hackathons/gridlock2.0/Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv'
-
+CSV_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'dataset.csv')
+# CSV_PATH = '/home/bala/myfiles/Hackathons/gridlock2.0/Astram event data_anonymized - Astram event data_anonymizedb40ac87.csv
 def load_and_clean_data(filepath: str = CSV_PATH) -> pd.DataFrame:
     df = pd.read_csv(filepath)
 

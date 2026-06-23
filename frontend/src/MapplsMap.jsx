@@ -1,32 +1,41 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const MapplsMap = ({ center, diversionRoute }) => {
-  const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const polylineInstance = useRef(null);
   const markerInstance = useRef(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
+  // Initialize Map once
   useEffect(() => {
-    // Check if mappls is loaded
-    if (!window.mappls) {
-      console.error('Mappls script not loaded. Check index.html API key.');
+    if (!window.mappls || mapInstance.current) {
       return;
     }
 
-    if (!mapInstance.current) {
-      // Initialize Map
-      mapInstance.current = new window.mappls.Map(mapRef.current, {
+    try {
+      mapInstance.current = new window.mappls.Map("mappls-map-container", {
         center: [center.lat, center.lng],
         zoom: 15,
       });
-    } else {
-      // Update center smoothly
-      mapInstance.current.setCenter([center.lat, center.lng]);
-    }
 
-    // Delay to ensure map is ready for drawing
-    setTimeout(() => {
-      // Add Marker for the incident
+      mapInstance.current.addListener('load', () => {
+        setMapLoaded(true);
+      });
+    } catch (e) {
+      console.error("Map Init Error:", e);
+    }
+  }, []); // Run only once on mount
+
+  // Update center and draw markers/polylines when props change or map loads
+  useEffect(() => {
+    if (!mapLoaded || !mapInstance.current) return;
+
+    try {
+      if (typeof mapInstance.current.setCenter === 'function') {
+        mapInstance.current.setCenter([center.lat, center.lng]);
+      }
+
+      // Add Marker
       if (markerInstance.current) {
         markerInstance.current.remove();
       }
@@ -37,7 +46,7 @@ const MapplsMap = ({ center, diversionRoute }) => {
         popupOptions: { openPopup: true }
       });
 
-      // Add Polyline if diversion route exists
+      // Add Polyline
       if (polylineInstance.current) {
         polylineInstance.current.remove();
       }
@@ -54,15 +63,12 @@ const MapplsMap = ({ center, diversionRoute }) => {
           fitbounds: true
         });
       }
-    }, 500);
+    } catch (e) {
+      console.error("Map Update Error:", e);
+    }
+  }, [center, diversionRoute, mapLoaded]);
 
-    return () => {
-      // We keep the map instance alive for React re-renders, 
-      // but if unmounted entirely, we could clean it up.
-    };
-  }, [center, diversionRoute]);
-
-  return <div ref={mapRef} style={{ width: '100%', height: '100%', minHeight: '300px', borderRadius: '12px' }}></div>;
+  return <div id="mappls-map-container" style={{ width: '100%', height: '100%', minHeight: '300px', borderRadius: '12px' }}></div>;
 };
 
 export default MapplsMap;
