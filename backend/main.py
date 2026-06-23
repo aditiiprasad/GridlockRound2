@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import joblib
 import pandas as pd
@@ -7,9 +9,15 @@ import numpy as np
 from datetime import datetime
 from collections import Counter, defaultdict
 from typing import Optional
+import requests
+import os
+from dotenv import load_dotenv
 
 from fuzzy_engine import compute_resources
 from data_pipeline import load_full_data
+
+load_dotenv()
+MAPPLS_ACCESS_TOKEN = os.getenv("MAPPLS_ACCESS_TOKEN")
 
 app = FastAPI(title="Traffic Intelligence Engine API — ASTraM")
 
@@ -182,16 +190,36 @@ def predict_resources(request: IncidentRequest):
     elif predicted_duration > 40:
         ripple = "WARNING: Moderate ripple effect likely. Monitor adjacent junctions closely."
 
-    # ── Simulated diversion route ────────────────────────────────────────────
+    # ── Mappls API Diversion Route ───────────────────────────────────────────
     base_lat, base_lng = request.latitude, request.longitude
-    off = 0.005
-    diversion_route = [
-        {"lat": base_lat,         "lng": base_lng},
-        {"lat": base_lat + off,   "lng": base_lng},
-        {"lat": base_lat + off,   "lng": base_lng + off},
-        {"lat": base_lat - off/2, "lng": base_lng + off},
-        {"lat": base_lat - off/2, "lng": base_lng - off/2},
-    ]
+    diversion_route = []
+    
+    if MAPPLS_ACCESS_TOKEN:
+        # Route from slightly south-west to slightly north-east to create a diversion path
+        start_lat, start_lng = base_lat - 0.005, base_lng - 0.005
+        end_lat, end_lng = base_lat + 0.005, base_lng + 0.005
+        
+        try:
+            url = f"https://apis.mappls.com/advancedmaps/v1/{MAPPLS_ACCESS_TOKEN}/route_adv/driving/{start_lng},{start_lat};{end_lng},{end_lat}?geometries=geojson"
+            response = requests.get(url, timeout=4.0)
+            if response.status_code == 200:
+                data = response.json()
+                if "routes" in data and len(data["routes"]) > 0:
+                    coords = data["routes"][0]["geometry"]["coordinates"]
+                    diversion_route = [{"lat": c[1], "lng": c[0]} for c in coords]
+        except Exception as e:
+            print("Mappls Routing API Error:", e)
+
+    # Fallback to simulated square if API fails or token missing
+    if not diversion_route:
+        off = 0.005
+        diversion_route = [
+            {"lat": base_lat,         "lng": base_lng},
+            {"lat": base_lat + off,   "lng": base_lng},
+            {"lat": base_lat + off,   "lng": base_lng + off},
+            {"lat": base_lat - off/2, "lng": base_lng + off},
+            {"lat": base_lat - off/2, "lng": base_lng - off/2},
+        ]
 
     return PredictionResponse(
         predicted_duration_minutes=round(predicted_duration, 1),
