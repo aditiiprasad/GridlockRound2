@@ -1,12 +1,27 @@
-# GridlockRound2
+# GridlockRound2 - Traffic Intelligence Engine (ASTraM)
 
-This project is a Traffic Intelligence Engine that predicts traffic incident durations and estimates required resources (personnel, barricades) using Machine Learning and Fuzzy Logic. It provides a FastAPI backend for the predictive model and a React/Vite frontend for the user interface.
+This project is an AI-powered **Traffic Intelligence Engine** built for Bengaluru (ASTraM). It predicts traffic incident clearance durations, estimates required resources (personnel, barricades) using Machine Learning and Fuzzy Logic, and provides a rich analytics dashboard for density mapping and historical insights.
 
-## Project Structure
+## Key Features
 
-- `backend/`: FastAPI application, Machine Learning pipeline, and Fuzzy Logic engine.
-- `frontend/`: React application built with Vite and TailwindCSS.
-- `dataset.csv`: Data file used for the ML models.
+- **Predictive AI Engine**: Uses a Gradient Boosting Regression model trained on historical event data to predict clearance duration based on incident type, location, priority, and time features.
+- **Resource Allocation (Fuzzy Logic)**: An IRC/MoRTH-aligned fuzzy inference system computes the exact number of personnel (0-12) and barricades (0-50) needed based on the predicted duration and corridor priority.
+- **Ripple Effect & Risk Alerts**: Generates intelligent risk assessments (Low, Medium, High, Critical) and warns about secondary congestion (ripple effects) for severe incidents.
+- **Interactive Analytics & Grid Mapping**: Divides the city into ~0.5 km² grid cells to render incident density heatmaps, along with detailed cell-level statistics including top causes, hourly distribution, and planned vs. unplanned splits.
+- **Diversion Route Mapping**: Integrates with Mappls SDK to visualize suggested diversion routes around the incident coordinate.
+
+## Architecture & Technology Stack
+
+### Backend (Python / FastAPI)
+- **Framework**: FastAPI for high-performance API endpoints.
+- **Machine Learning**: `scikit-learn` (GradientBoostingRegressor), `pandas`, `joblib` for model training and inference.
+- **Fuzzy Logic**: `scikit-fuzzy` for rule-based resource calculations.
+- **Pre-computed Analytics**: Loads full anonymized traffic incident data (`dataset.csv`) to serve fast aggregation endpoints.
+
+### Frontend (React / Vite)
+- **Framework**: React.js built with Vite.
+- **Styling**: TailwindCSS, Vanilla CSS with a dark glassmorphism aesthetic.
+- **Mapping & Charts**: `recharts` for interactive analytics, `leaflet` for grid mapping, and Mappls map integration for diversion routing.
 
 ## Setup & Running Locally
 
@@ -53,4 +68,4 @@ This project is a Traffic Intelligence Engine that predicts traffic incident dur
    ```bash
    npm run dev
    ```
-   The frontend application will typically be available at `http://localhost:5173`.
+   The frontend application will be available at `http://localhost:5173`.
