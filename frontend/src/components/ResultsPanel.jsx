@@ -28,7 +28,18 @@ export default function ResultsPanel({ results }) {
   }
 
   const {data:r, form} = results
-  const deploy = () => { setToast(true); setTimeout(()=>setToast(false),3000) }
+  const deploy = async () => {
+    try {
+      const { API } = await import('../constants')
+      const axios = (await import('axios')).default
+      await axios.post(`${API}/api/deployments`, { form, predictions: r })
+      setToast(true)
+      setTimeout(()=>setToast(false),3000)
+    } catch (err) {
+      console.error("Failed to deploy ASTraM Field Units", err)
+      alert("Failed to submit deployment to server.")
+    }
+  }
 
   return (
     <div className="p-8 flex flex-col gap-6 bg-gray-50 min-h-full">

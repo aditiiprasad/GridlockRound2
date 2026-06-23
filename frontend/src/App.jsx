@@ -6,6 +6,7 @@ import ResultsPanel from './components/ResultsPanel'
 import LandingPage from './components/LandingPage'
 import Analytics from './Analytics'
 import GridMap from './GridMap'
+import Feedback from './Feedback'
 import { API } from './constants'
 
 const DEFAULT_FORM = {
@@ -73,21 +74,32 @@ export default function App() {
           <div className="p-6 pb-0">
             <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
               <button 
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all ${tab==='predict' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`} 
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${tab==='predict' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`} 
                 onClick={() => setTab('predict')}
               >
                 ⚡ Predict
               </button>
               <button 
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all ${tab==='analytics' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`} 
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${tab==='analytics' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`} 
                 onClick={() => setTab('analytics')}
               >
                 📊 Analytics
+              </button>
+              <button 
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${tab==='feedback' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`} 
+                onClick={() => setTab('feedback')}
+              >
+                📋 Deployments
               </button>
             </div>
           </div>
 
           {tab === 'analytics' && <Analytics />}
+          {tab === 'feedback'  && (
+            <div className="p-6 text-sm text-gray-500 leading-relaxed font-semibold">
+              Manage ASTraM field deployments and submit post-event feedback to retrain ML models and refine the traffic scale logic.
+            </div>
+          )}
           {tab === 'predict'  && (
             <>
               <SidebarForm 
@@ -110,6 +122,7 @@ export default function App() {
         {/* RIGHT MAIN */}
         <main className="flex-1 bg-gray-50 overflow-y-auto flex flex-col">
           {tab === 'predict'   && <ResultsPanel results={results} />}
+          {tab === 'feedback'  && <Feedback />}
           {tab === 'analytics' && (
             <div className="flex flex-col h-full">
               <div className="p-4 px-6 border-b border-gray-200 bg-white shrink-0">

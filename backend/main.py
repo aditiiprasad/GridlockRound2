@@ -43,6 +43,13 @@ print("Loading analytics dataset...")
 _df = load_full_data()
 print(f"Analytics dataset: {len(_df)} rows loaded")
 
+from db import init_db, add_deployment, get_deployments, resolve_deployment
+try:
+    init_db()
+    print("Database initialized successfully.")
+except Exception as e:
+    print("Failed to initialize database:", e)
+
 # ── Historical lookup helpers ────────────────────────────────────────────────
 _CAUSE_CLOSURE_RATE: dict[str, float] = {}
 _CAUSE_AVG_DURATION: dict[str, float] = {}
@@ -513,6 +520,47 @@ def grid_cell_detail(grid_id: str, hour_start: int = 0, hour_end: int = 23, mont
         "zone":          grp['zone'].value_counts().index[0] if len(grp) > 0 else 'unknown',
         "junctions":     grp[grp['junction'] != '']['junction'].value_counts().head(5).to_dict(),
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DEPLOYMENT & FEEDBACK LOGGING ENDPOINTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+class DeploymentRequest(BaseModel):
+    form: IncidentRequest
+    predictions: PredictionResponse
+
+class DeploymentFeedback(BaseModel):
+    actual_duration: float
+    actual_personnel: int
+    actual_barricades: int
+    actual_congestion_radius: float
+    actual_delay: float
+    feedback_comments: Optional[str] = ""
+
+@app.post("/api/deployments")
+def create_deployment(req: DeploymentRequest):
+    data = req.form.dict()
+    preds = {
+        "predicted_duration": req.predictions.predicted_duration_minutes,
+        "personnel": req.predictions.personnel_needed,
+        "barricades": req.predictions.barricades_needed,
+        "congestion_radius_meters": req.predictions.congestion_radius_meters,
+        "commuter_delay_minutes": req.predictions.commuter_delay_minutes
+    }
+    new_id = add_deployment(data, preds)
+    return {"status": "success", "id": new_id}
+
+@app.get("/api/deployments")
+def list_deployments(status: Optional[str] = None):
+    return get_deployments(status)
+
+@app.post("/api/deployments/{deployment_id}/resolve")
+def resolve_existing_deployment(deployment_id: int, feedback: DeploymentFeedback):
+    res = resolve_deployment(deployment_id, feedback.dict())
+    if not res:
+        return {"status": "error", "message": "Deployment not found"}
+    return {"status": "success", "deployment": res}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SERVE REACT FRONTEND (Must be at the very bottom)
