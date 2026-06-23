@@ -1,11 +1,23 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import Predict from './Predict'
 import Analytics from './Analytics'
 import GridMap from './GridMap'
 import './App.css'
 
+const DEFAULT_FILTERS = { hourStart: 0, hourEnd: 23, month: 0 }
+
 export default function App() {
   const [tab, setTab] = useState('predict')
+
+  // ── Shared analytics state (lifted from GridMap / Analytics) ──────────────
+  const [appliedFilters,  setApplied]  = useState(DEFAULT_FILTERS)
+  const [pendingFilters,  setPending]  = useState(DEFAULT_FILTERS)
+  const [selectedGridId,  setGridId]   = useState(null)
+
+  const applyFilters = useCallback(() => { setApplied({...pendingFilters}); setGridId(null) }, [pendingFilters])
+  const resetAll     = useCallback(() => { setApplied(DEFAULT_FILTERS); setPending(DEFAULT_FILTERS); setGridId(null) }, [])
+  const selectCell   = useCallback((gid) => setGridId(gid), [])
+  const clearCell    = useCallback(() => setGridId(null), [])
 
   return (
     <div className="grid-bg" style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
@@ -61,7 +73,13 @@ export default function App() {
             </div>
           </div>
 
-          {tab === 'analytics' && <Analytics />}
+          {tab === 'analytics' && (
+            <Analytics
+              filters={appliedFilters}
+              selectedGridId={selectedGridId}
+              onClearCell={clearCell}
+            />
+          )}
           {tab === 'predict'  && (
             /* only the form part of Predict lives here */
             <PredictSidebarOnly />
@@ -77,15 +95,15 @@ export default function App() {
           {tab === 'predict'   && <PredictMain />}
           {tab === 'analytics' && (
             <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
-              <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border)',background:'#0d1424',flexShrink:0}}>
-                <div style={{fontWeight:800,fontSize:'0.95rem',marginBottom:2}}>Incident Density Grid</div>
-                <div style={{fontSize:'0.75rem',color:'var(--text-muted)'}}>
-                  Bengaluru divided into ~0.5 km² cells · Click any shaded cell for stats
-                </div>
-              </div>
-              <div style={{flex:1,minHeight:0,overflow:'hidden'}}>
-                <GridMap />
-              </div>
+              <GridMap
+                appliedFilters={appliedFilters}
+                pendingFilters={pendingFilters}
+                setPendingFilters={setPending}
+                onApply={applyFilters}
+                onReset={resetAll}
+                selectedGridId={selectedGridId}
+                onCellSelect={selectCell}
+              />
             </div>
           )}
         </main>
