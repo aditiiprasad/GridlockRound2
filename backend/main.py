@@ -560,6 +560,19 @@ def resolve_existing_deployment(deployment_id: int, feedback: DeploymentFeedback
     res = resolve_deployment(deployment_id, feedback.dict())
     if not res:
         return {"status": "error", "message": "Deployment not found"}
+    
+    # Trigger model retraining in background / synchronously for immediate update
+    try:
+        from ml_model import retrain_with_feedback
+        retrained = retrain_with_feedback(res)
+        if retrained:
+            # Hot-reload the model pipeline
+            global model_pipeline
+            model_pipeline = joblib.load(MODEL_PATH)
+            print("Model hot-reloaded successfully after retraining.")
+    except Exception as e:
+        print("Failed to retrain or hot-reload model:", e)
+        
     return {"status": "success", "deployment": res}
 
 # ══════════════════════════════════════════════════════════════════════════════
