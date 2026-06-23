@@ -1,79 +1,118 @@
-# GridlockRound2 - Traffic Intelligence Engine (ASTraM)
+# 🚦 NammaGrid (Traffic Intelligence Engine)
 
-This project is an AI-powered **Traffic Intelligence Engine** built for Bengaluru (ASTraM). It predicts traffic incident clearance durations, estimates required resources (personnel, barricades) using Machine Learning and Fuzzy Logic, and provides a rich analytics dashboard for density mapping and historical insights.
+**Flipkart Gridlock Hackathon 2.0 - Prototype Round 2**  
+*Theme 2: Event-Driven Congestion (Planned & Unplanned)*
 
-## Key Features
+![NammaGrid UI Overview](https://upload.wikimedia.org/wikipedia/commons/4/4e/Bengaluru_Traffic_Police_Logo.png)
 
-- **Predictive AI Engine**: Uses a Gradient Boosting Regression model trained on historical event data to predict clearance duration based on incident type, location, priority, and time features.
-- **Resource Allocation (Fuzzy Logic)**: An IRC/MoRTH-aligned fuzzy inference system computes the exact number of personnel (0-12) and barricades (0-50) needed based on the predicted duration and corridor priority.
-- **Ripple Effect & Risk Alerts**: Generates intelligent risk assessments (Low, Medium, High, Critical) and warns about secondary congestion (ripple effects) for severe incidents.
-- **Interactive Analytics & Grid Mapping**: Divides the city into ~0.5 km² grid cells to render incident density heatmaps, along with detailed cell-level statistics including top causes, hourly distribution, and planned vs. unplanned splits.
-- **Diversion Route Mapping**: Integrates with Mappls SDK to visualize suggested diversion routes around the incident coordinate.
-- **Live Event Scraper (Simulated for Prototype)**: A `Live Feeds` tab aggregates upcoming events (stadium matches, rallies, weather alerts) to prepopulate prediction models. Note: For this prototype phase, the BookMyShow/Social Media scraping is simulated via hardcoded data due to API access constraints, but the architecture supports live ingestion.
-- **Automated Public Advisories**: One-click generation of public traffic advisories (ready for WhatsApp/X) based on predicted congestion radius and delay times.
+## 📌 1. Hackathon Overview
 
-## Hackathon Theme 2 Alignment
-This project directly addresses **Theme 2: Event-Driven Congestion (Planned & Unplanned)**.
-- **Forecast Event Impact**: AI predicts exact clearance times and congestion radius.
-- **Recommend Optimal Resources**: Fuzzy Logic engine recommends the precise number of personnel and barricading based on incident severity.
-- **Post-Event Learning System**: Includes a Deployment & Feedback loop where actual post-event metrics are logged, which then triggers an automatic online retraining of the Machine Learning model.
+* **Host**: Flipkart in partnership with Bengaluru Traffic Police (BTP) & MapmyIndia
+* **Phase**: Prototype Round 2 (Virtual Round)
+* **Team**: Solo Submission
+* **Theme Selected**: **THEME 2: Event-Driven Congestion (Planned & Unplanned)**
 
-## Architecture & Technology Stack
+### The Operational Challenge
+Political rallies, festivals, sports events, construction activities, and sudden gatherings create localized traffic breakdowns. Currently, event impact is not quantified in advance, and resource deployment is entirely experience-driven without a unified post-event learning system.
 
-### Backend (Python / FastAPI)
-- **Framework**: FastAPI for high-performance API endpoints.
-- **Machine Learning**: `scikit-learn` (GradientBoostingRegressor), `pandas`, `joblib` for model training and inference.
-- **Fuzzy Logic**: `scikit-fuzzy` for rule-based resource calculations.
-- **Pre-computed Analytics**: Loads full anonymized traffic incident data (`dataset.csv`) to serve fast aggregation endpoints.
+### Our Direction
+NammaGrid leverages historical and real-time data to **forecast event-related traffic impact** and autonomously recommend optimal manpower, barricading, and diversion plans to the command center.
 
-### Frontend (React / Vite)
-- **Framework**: React.js built with Vite.
-- **Styling**: TailwindCSS, Vanilla CSS with a dark glassmorphism aesthetic.
-- **Mapping & Charts**: `recharts` for interactive analytics, `leaflet` for grid mapping, and Mappls map integration for diversion routing.
+---
 
-## Setup & Running Locally
+## 🚀 2. Project Introduction: NammaGrid
+
+**NammaGrid** is a predictive traffic intelligence dashboard built specifically for the Bengaluru Traffic Police's traffic management system. It aggregates live simulated feeds (like BookMyShow data, weather APIs, and social media) and runs them through a custom machine learning pipeline to predict gridlock *before* it happens.
+
+### Core Workflows
+1. **Live Feed Aggregation**: The system continuously monitors inputs for planned events (Cricket matches, rallies) and unplanned events (waterlogging, accidents).
+2. **AI Inference Pipeline**: A Scikit-Learn Random Forest model analyzes the event's location, crowd size, priority, and cause against historical Bengaluru traffic datasets.
+3. **Fuzzy Logic Risk Assessment**: The predicted delay is passed through a fuzzy logic system to determine the ripple effect, risk level, and required physical resources (officers and barricades).
+4. **Dynamic Mapping**: MapmyIndia (Mappls API) visualizes the exact blast radius of the congestion and automatically maps out an intelligent diversion route.
+5. **Automated Advisory**: The system generates a one-click WhatsApp/Twitter public advisory to alert commuters instantly.
+
+---
+
+## 🛠️ 3. Technology Stack
+
+### Frontend (User Interface)
+* **React 19 + Vite**: High-performance rendering for the real-time command dashboard.
+* **Tailwind CSS v4**: For the pristine, modern, Gridlock 2.0-inspired UI.
+* **Mappls API**: Official MapmyIndia SDK integration for local geographical plotting and diversion routing.
+
+### Backend (AI & API Services)
+* **FastAPI**: Asynchronous Python web framework for lightning-fast ML inference APIs.
+* **Scikit-Learn**: Machine Learning library powering the `RandomForestRegressor` delay prediction model.
+* **Scikit-Fuzzy**: Implements fuzzy logic to calculate qualitative metrics (Risk Level, Resource Allocation).
+* **Pandas / NumPy**: High-performance data manipulation and mathematical scaling.
+* **NetworkX**: Used for graph-based alternative route generation and node traversal.
+
+---
+
+## 🏗️ 4. File Structure & Architecture
+
+```text
+GridlockRound2/
+├── backend/                       # Python FastAPI + ML Backend
+│   ├── main.py                    # Core API Router, Mappls integration, and Fuzzy Logic engine
+│   ├── ml_model.py                # Scikit-Learn RandomForest Model training and prediction inference
+│   ├── test_route.py              # Unit tests for Mappls API and routing engine
+│   └── requirements.txt           # Python dependencies (fastapi, scikit-learn, networkx, etc.)
+│
+├── frontend/                      # React UI Command Center
+│   ├── index.html                 # Entry point with MapmyIndia SDK script injection
+│   ├── src/
+│   │   ├── App.jsx                # Main Layout Controller (Sidebar + Main Panel View state)
+│   │   ├── MapplsMap.jsx          # React wrapper for MapmyIndia SDK (Heatmaps, Polylines, Markers)
+│   │   ├── Analytics.jsx          # Placeholder for broader city-wide analytics
+│   │   ├── constants.js           # Shared enums, API URLs, and UI Config
+│   │   ├── components/
+│   │   │   ├── LandingPage.jsx    # Split-view hero page with scenario quick-launch
+│   │   │   ├── Header.jsx         # Global navigation and Features Modal
+│   │   │   ├── LiveFeeds.jsx      # Simulated API aggregator for incoming city events
+│   │   │   ├── SidebarForm.jsx    # Event parameter input panel (Cause, Crowd, Location)
+│   │   │   └── ResultsPanel.jsx   # Sticky dashboard for KPIs, ROI Analysis, and Map View
+│   │   └── index.css              # Global Tailwind styles & custom animations
+│   │
+│   ├── package.json               # Node dependencies (React, Tailwind, Vite)
+│   └── vite.config.js             # Vite bundler configuration
+│
+└── README.md                      # Project Documentation
+```
+
+---
+
+## 🎯 5. Key Features
+
+* **Predictive ML Engine**: Uses historical data to predict exactly how long an intersection will be blocked and calculates the geographical ripple effect.
+* **Resource Optimization**: Tells the precinct exactly how many traffic officers and barricades to deploy based on event scale and predicted spillover.
+* **Live Heatmap Visualization**: Draws a translucent, non-intrusive heatmap circle directly over the affected corridor on the Mappls map.
+* **ROI & Impact Analysis**: Instantly calculates the total "Time Saved per Commuter" comparing the delay with and without AI-driven intervention.
+* **Automated Social Broadcasting**: Floating action button that generates a pre-formatted, hashtag-ready traffic advisory for WhatsApp and Twitter.
+
+---
+
+## 🏁 6. Getting Started
 
 ### Prerequisites
+* Node.js (v18+)
+* Python (3.10+)
+* Mappls API Key (Configure in `backend/.env` and `frontend/index.html`)
 
-- [Node.js](https://nodejs.org/) (for the frontend)
-- [Python 3.8+](https://www.python.org/) (for the backend)
+### Running the Backend
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
 
-### 1. Backend Setup
+### Running the Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Create and activate a virtual environment (optional but recommended):
-   ```bash
-   python -m venv venv
-   # On Windows
-   .\venv\Scripts\activate
-   # On macOS/Linux
-   source venv/bin/activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Run the FastAPI development server:
-   ```bash
-   uvicorn main:app --reload --host 0.0.0.0 --port 8000
-   ```
-   The backend API will be available at `http://localhost:8000`. You can access the API documentation at `http://localhost:8000/docs`.
-
-### 2. Frontend Setup
-
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
-   The frontend application will be available at `http://localhost:5173`.
+The application will launch on `http://localhost:5173`. Select a scenario from the landing page to trigger the predictive pipeline!
