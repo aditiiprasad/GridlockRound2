@@ -3,7 +3,7 @@ uvicorn
 pandas
 numpy
 scipy
-scikit-learn
+scikit-learn==1.6.0
 scikit-fuzzy
 joblib
 pydantic
